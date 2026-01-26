@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 const ALLOWED_EMAILS = [
   "espen@morild.no",
   "espen.morild@firemedia.no",
+  "sandermorild@live.no"
   // Add more beta tester emails here
 ];
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,8 +8,14 @@ import { Input } from "@/components/ui/Input";
 import { Receipt, AlertCircle, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+// Beta allowlist - only these emails can sign up
+const ALLOWED_EMAILS = [
+  "espen@morild.no",
+  "espen.morild@firemedia.no",
+  // Add more beta tester emails here
+];
+
 export default function SignUpPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -36,6 +41,13 @@ export default function SignUpPage() {
     // Validate password length
     if (form.password.length < 6) {
       setError("Passordet må være minst 6 tegn");
+      setIsLoading(false);
+      return;
+    }
+
+    // Check email allowlist (beta restriction)
+    if (!ALLOWED_EMAILS.includes(form.email.toLowerCase())) {
+      setError("Denne e-postadressen er ikke invitert til beta. Kontakt administrator for tilgang.");
       setIsLoading(false);
       return;
     }

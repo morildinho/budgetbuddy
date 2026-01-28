@@ -22,12 +22,12 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] lg:block">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-[var(--border-primary)] px-6">
+        <div className="flex h-20 items-center gap-3 border-b border-[var(--border-primary)] px-6">
           <Image
             src="/logo.webp"
             alt="Budgetbuddy"
-            width={36}
-            height={36}
+            width={52}
+            height={52}
             className="rounded-lg"
           />
           <span className="text-lg font-semibold text-[var(--text-primary)]">

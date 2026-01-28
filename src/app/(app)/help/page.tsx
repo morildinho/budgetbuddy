@@ -1,9 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { HelpCircle, History, Receipt, Wallet, PieChart, Settings, Sparkles, Rocket, MessageCircle } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { HelpCircle, History, Receipt, Wallet, PieChart, Settings, Sparkles, Rocket, MessageCircle, Send } from "lucide-react";
 
 export default function HelpPage() {
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactMessage.trim()) return;
+
+    const subject = encodeURIComponent("Forslag til Budgetbuddy");
+    const body = encodeURIComponent(
+      `Fra: ${contactEmail || "Ikke oppgitt"}\n\nForslag:\n${contactMessage}`
+    );
+    window.open(`mailto:espen.morild@gmail.com?subject=${subject}&body=${body}`, "_self");
+
+    setSubmitted(true);
+    setContactEmail("");
+    setContactMessage("");
+  };
+
   return (
     <div className="min-h-screen p-4 lg:p-8 pb-24">
       {/* Header */}
@@ -158,16 +180,64 @@ export default function HelpPage() {
 
         {/* Contact / Feedback */}
         <Card>
-          <CardBody className="p-6">
-            <div className="rounded-lg bg-[var(--accent-primary)]/10 p-4 text-center">
-              <MessageCircle className="mx-auto h-8 w-8 text-[var(--accent-primary)] mb-2" />
-              <h3 className="mb-1 font-semibold text-[var(--text-primary)]">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-[var(--accent-primary)]" />
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
                 Har du forslag til funksjoner?
-              </h3>
-              <p className="text-sm text-[var(--text-secondary)]">
-                Ta kontakt for å dele dine ideer og ønsker for Budgetbuddy.
-              </p>
+              </h2>
             </div>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Del dine ideer og ønsker for Budgetbuddy.
+            </p>
+          </CardHeader>
+          <CardBody>
+            {submitted ? (
+              <div className="rounded-lg bg-[var(--accent-primary)]/10 p-6 text-center">
+                <Send className="mx-auto h-8 w-8 text-[var(--accent-primary)] mb-2" />
+                <h3 className="mb-1 font-semibold text-[var(--text-primary)]">
+                  Takk for tilbakemeldingen!
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  E-postklienten din skal ha åpnet seg med forslaget ditt.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => setSubmitted(false)}
+                >
+                  Send nytt forslag
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <Input
+                  label="Din e-post"
+                  type="email"
+                  placeholder="navn@eksempel.no"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+                <div className="w-full">
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
+                    Ditt forslag
+                  </label>
+                  <textarea
+                    placeholder="Beskriv funksjonen eller forslaget ditt..."
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    required
+                    rows={4}
+                    className="w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-all duration-200 focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] resize-none"
+                  />
+                </div>
+                <Button type="submit" variant="primary" size="md" disabled={!contactMessage.trim()}>
+                  <Send className="h-4 w-4" />
+                  Send forslag
+                </Button>
+              </form>
+            )}
           </CardBody>
         </Card>
 

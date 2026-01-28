@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Receipt, BarChart3, Settings, Wallet } from "lucide-react";
+import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/analytics", icon: BarChart3, label: "Analyse" },
   { href: "/budget", icon: Wallet, label: "Budsjett" },
   { href: "/settings", icon: Settings, label: "Innstillinger" },
+  { href: "/help", icon: HelpCircle, label: "Hjelp" },
 ];
 
 export function Sidebar() {

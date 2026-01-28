@@ -26,8 +26,10 @@ import {
   Banknote,
   BarChart3,
   Calendar,
+  Tag,
 } from "lucide-react";
 import type { BudgetEntry, BudgetEntryType } from "@/types/database";
+import { useBudgetCategories, type BudgetCategory } from "@/hooks/useBudgetCategories";
 
 // Entry type configuration with Norwegian labels and icons
 const ENTRY_TYPE_CONFIG: Record<
@@ -79,7 +81,7 @@ function getMonthOptions() {
 }
 
 export default function BudgetPage() {
-  const [activeTab, setActiveTab] = useState<"monthly" | "yearly">("monthly");
+  const [activeTab, setActiveTab] = useState<"monthly" | "yearly" | "categories">("monthly");
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<{ description: string; amount: string }>({
     description: "",
@@ -89,6 +91,10 @@ export default function BudgetPage() {
     type: BudgetEntryType;
     description: string;
     amount: string;
+  } | null>(null);
+  const [newCategory, setNewCategory] = useState<{
+    parentType: BudgetEntryType;
+    name: string;
   } | null>(null);
 
   const {
@@ -106,6 +112,13 @@ export default function BudgetPage() {
   } = useBudget();
 
   const { monthlyStats, loading: yearlyLoading } = useYearlyBudgets();
+
+  const {
+    categories,
+    loading: categoriesLoading,
+    createCategory,
+    deleteCategory,
+  } = useBudgetCategories();
 
   // Group entries by type
   const groupedEntries = useMemo(() => {
@@ -234,9 +247,16 @@ export default function BudgetPage() {
           <BarChart3 className="h-4 w-4" />
           År
         </Button>
+        <Button
+          variant={activeTab === "categories" ? "primary" : "outline"}
+          onClick={() => setActiveTab("categories")}
+        >
+          <Tag className="h-4 w-4" />
+          Kategorier
+        </Button>
       </div>
 
-      {activeTab === "monthly" ? (
+      {activeTab === "monthly" && (
         <>
           {/* Month Navigation */}
           <Card className="mb-6">
@@ -334,8 +354,9 @@ export default function BudgetPage() {
             )}
           </div>
         </>
-      ) : (
-        /* Yearly View */
+      )}
+
+      {activeTab === "yearly" && (
         <div className="space-y-6">
           {yearlyLoading ? (
             <div className="flex justify-center py-12">
@@ -458,6 +479,139 @@ export default function BudgetPage() {
                   </div>
                 </CardBody>
               </Card>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeTab === "categories" && (
+        <div className="space-y-6">
+          {categoriesLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
+            </div>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <h2 className="font-semibold text-[var(--text-primary)]">
+                      Administrer kategorier
+                    </h2>
+                  </div>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                    Legg til egendefinerte kategorier for å organisere budsjettet bedre
+                  </p>
+                </CardHeader>
+              </Card>
+
+              {(["income", "fixed_expense", "variable_expense", "loan"] as BudgetEntryType[]).map(
+                (type) => {
+                  const config = ENTRY_TYPE_CONFIG[type];
+                  const Icon = config.icon;
+                  const typeCategories = categories.filter((c) => c.parent_type === type);
+
+                  return (
+                    <Card key={type}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="flex h-8 w-8 items-center justify-center rounded-lg"
+                              style={{ backgroundColor: `${config.color}20` }}
+                            >
+                              <Icon className="h-4 w-4" style={{ color: config.color }} />
+                            </div>
+                            <h2 className="font-semibold text-[var(--text-primary)]">
+                              {config.labelPlural}
+                            </h2>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setNewCategory({ parentType: type, name: "" })}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardBody className="p-0">
+                        <div className="divide-y divide-[var(--border-primary)]">
+                          {typeCategories.map((category) => (
+                            <div
+                              key={category.id}
+                              className="flex items-center justify-between px-4 lg:px-6 py-3"
+                            >
+                              <span className="text-[var(--text-primary)]">{category.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteCategory(category.id)}
+                              >
+                                <Trash2 className="h-3 w-3 text-[#ef4444]" />
+                              </Button>
+                            </div>
+                          ))}
+
+                          {/* New Category Form */}
+                          {newCategory?.parentType === type && (
+                            <div className="flex items-center gap-2 px-4 lg:px-6 py-3 bg-[var(--bg-secondary)]">
+                              <Input
+                                placeholder="Kategorinavn"
+                                value={newCategory.name}
+                                onChange={(e) =>
+                                  setNewCategory({ ...newCategory, name: e.target.value })
+                                }
+                                className="flex-1"
+                                autoFocus
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => {
+                                  if (newCategory.name.trim()) {
+                                    await createCategory({
+                                      name: newCategory.name.trim(),
+                                      parent_type: newCategory.parentType,
+                                      color: config.color,
+                                      icon: "tag",
+                                      sort_order: typeCategories.length,
+                                    });
+                                    setNewCategory(null);
+                                  }
+                                }}
+                              >
+                                <Check className="h-4 w-4 text-[#22c55e]" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+
+                          {typeCategories.length === 0 && newCategory?.parentType !== type && (
+                            <div className="px-4 lg:px-6 py-6 text-center">
+                              <p className="text-sm text-[var(--text-muted)]">
+                                Ingen kategorier lagt til
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => setNewCategory({ parentType: type, name: "" })}
+                              >
+                                <Plus className="h-4 w-4" />
+                                Legg til kategori
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  );
+                }
+              )}
             </>
           )}
         </div>

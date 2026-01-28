@@ -1,6 +1,8 @@
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Sidebar } from "@/components/layout/Sidebar";
 
+export const dynamic = 'force-dynamic';
+
 export default function AppLayout({
   children,
 }: {

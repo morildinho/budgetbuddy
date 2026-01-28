@@ -147,6 +147,7 @@ export interface BudgetEntry {
   amount: number;
   is_recurring: boolean;
   sort_order: number;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -158,6 +159,7 @@ export interface BudgetEntryInsert {
   amount: number;
   is_recurring?: boolean;
   sort_order?: number;
+  category_id?: string | null;
 }
 
 export type BudgetEntryUpdate = Partial<Omit<BudgetEntry, 'id' | 'budget_id' | 'created_at'>>;

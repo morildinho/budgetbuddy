@@ -29,7 +29,8 @@ import {
   Tag,
 } from "lucide-react";
 import type { BudgetEntry, BudgetEntryType } from "@/types/database";
-import { useBudgetCategories, type BudgetCategory } from "@/hooks/useBudgetCategories";
+import { useBudgetCategories } from "@/hooks/useBudgetCategories";
+import type { BudgetCategory } from "@/hooks/useBudgetCategories";
 
 // Entry type configuration with Norwegian labels and icons
 const ENTRY_TYPE_CONFIG: Record<
@@ -91,10 +92,9 @@ export default function BudgetPage() {
     type: BudgetEntryType;
     description: string;
     amount: string;
+    categoryId: string;
   } | null>(null);
   const [newCategory, setNewCategory] = useState<{
-    parentType: BudgetEntryType | null;
-    parentId: string | null;
     name: string;
   } | null>(null);
 
@@ -120,6 +120,12 @@ export default function BudgetPage() {
     createCategory,
     deleteCategory,
   } = useBudgetCategories();
+
+  // Main categories (no parent)
+  const mainCategories = useMemo(
+    () => categories.filter((c) => !c.parent_id),
+    [categories]
+  );
 
   // Group entries by type
   const groupedEntries = useMemo(() => {
@@ -158,7 +164,7 @@ export default function BudgetPage() {
   };
 
   const handleAddEntry = (type: BudgetEntryType) => {
-    setNewEntry({ type, description: "", amount: "" });
+    setNewEntry({ type, description: "", amount: "", categoryId: "" });
     setEditingEntry(null);
   };
 
@@ -170,6 +176,7 @@ export default function BudgetPage() {
       description: newEntry.description.trim(),
       amount: parseFloat(newEntry.amount),
       is_recurring: newEntry.type === "fixed_expense" || newEntry.type === "loan",
+      category_id: newEntry.categoryId || null,
     });
 
     setNewEntry(null);
@@ -339,6 +346,7 @@ export default function BudgetPage() {
                   type={type}
                   entries={groupedEntries[type]}
                   config={ENTRY_TYPE_CONFIG[type]}
+                  categories={mainCategories}
                   editingEntry={editingEntry}
                   editValues={editValues}
                   setEditValues={setEditValues}
@@ -492,298 +500,106 @@ export default function BudgetPage() {
               <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
             </div>
           ) : (
-            <>
-              {/* Header + Add Main Category */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-5 w-5 text-[var(--accent-primary)]" />
-                        <h2 className="font-semibold text-[var(--text-primary)]">
-                          Kategorier
-                        </h2>
-                      </div>
-                      <p className="mt-1 text-sm text-[var(--text-muted)]">
-                        Opprett hovedkategorier og underkategorier for budsjettet
-                      </p>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-5 w-5 text-[var(--accent-primary)]" />
+                      <h2 className="font-semibold text-[var(--text-primary)]">
+                        Kategorier
+                      </h2>
                     </div>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      Opprett kategorier for å organisere budsjettposter
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setNewCategory({ name: "" })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ny kategori
+                  </Button>
+                </div>
+              </CardHeader>
+
+              {/* New Category Form */}
+              {newCategory && (
+                <CardBody className="border-t border-[var(--border-primary)] p-4 bg-[var(--bg-secondary)]">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Kategorinavn"
+                      value={newCategory.name}
+                      onChange={(e) =>
+                        setNewCategory({ name: e.target.value })
+                      }
+                      className="flex-1"
+                      autoFocus
+                    />
                     <Button
-                      variant="primary"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setNewCategory({ parentType: null, parentId: null, name: "" })}
+                      onClick={async () => {
+                        if (newCategory.name.trim()) {
+                          await createCategory({
+                            name: newCategory.name.trim(),
+                            parent_type: null,
+                            parent_id: null,
+                            color: "#64748b",
+                            icon: "tag",
+                            sort_order: mainCategories.length,
+                          });
+                          setNewCategory(null);
+                        }
+                      }}
                     >
-                      <Plus className="h-4 w-4" />
-                      Ny hovedkategori
+                      <Check className="h-4 w-4 text-[#22c55e]" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
-                </CardHeader>
+                </CardBody>
+              )}
 
-                {/* New Main Category Form */}
-                {newCategory?.parentType === null && newCategory?.parentId === null && (
-                  <CardBody className="border-t border-[var(--border-primary)] p-4 bg-[var(--bg-secondary)]">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Navn på hovedkategori"
-                        value={newCategory.name}
-                        onChange={(e) =>
-                          setNewCategory({ ...newCategory, name: e.target.value })
-                        }
-                        className="flex-1"
-                        autoFocus
-                      />
+              {/* Category List */}
+              <CardBody className="p-0">
+                <div className="divide-y divide-[var(--border-primary)]">
+                  {mainCategories.map((cat) => (
+                    <div
+                      key={cat.id}
+                      className="flex items-center justify-between px-4 lg:px-6 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Tag className="h-4 w-4 text-[var(--accent-primary)]" />
+                        <span className="text-[var(--text-primary)]">{cat.name}</span>
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={async () => {
-                          if (newCategory.name.trim()) {
-                            await createCategory({
-                              name: newCategory.name.trim(),
-                              parent_type: null,
-                              parent_id: null,
-                              color: "#64748b",
-                              icon: "tag",
-                              sort_order: categories.filter((c) => !c.parent_type && !c.parent_id).length,
-                            });
-                            setNewCategory(null);
-                          }
-                        }}
+                        onClick={() => deleteCategory(cat.id)}
                       >
-                        <Check className="h-4 w-4 text-[#22c55e]" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
-                        <X className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3 text-[#ef4444]" />
                       </Button>
                     </div>
-                  </CardBody>
-                )}
-              </Card>
+                  ))}
 
-              {/* Custom Main Categories */}
-              {categories
-                .filter((c) => !c.parent_type && !c.parent_id)
-                .map((mainCat) => {
-                  const subCategories = categories.filter((c) => c.parent_id === mainCat.id);
-
-                  return (
-                    <Card key={mainCat.id}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-primary)]/10">
-                              <Tag className="h-4 w-4 text-[var(--accent-primary)]" />
-                            </div>
-                            <h2 className="font-semibold text-[var(--text-primary)]">
-                              {mainCat.name}
-                            </h2>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setNewCategory({ parentType: null, parentId: mainCat.id, name: "" })}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteCategory(mainCat.id)}
-                            >
-                              <Trash2 className="h-3 w-3 text-[#ef4444]" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardBody className="p-0">
-                        <div className="divide-y divide-[var(--border-primary)]">
-                          {subCategories.map((sub) => (
-                            <div
-                              key={sub.id}
-                              className="flex items-center justify-between px-4 lg:px-6 py-3 pl-8 lg:pl-12"
-                            >
-                              <span className="text-[var(--text-primary)]">{sub.name}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteCategory(sub.id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-[#ef4444]" />
-                              </Button>
-                            </div>
-                          ))}
-
-                          {/* New Sub-Category Form */}
-                          {newCategory?.parentId === mainCat.id && (
-                            <div className="flex items-center gap-2 px-4 lg:px-6 py-3 pl-8 lg:pl-12 bg-[var(--bg-secondary)]">
-                              <Input
-                                placeholder="Underkategori"
-                                value={newCategory.name}
-                                onChange={(e) =>
-                                  setNewCategory({ ...newCategory, name: e.target.value })
-                                }
-                                className="flex-1"
-                                autoFocus
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  if (newCategory.name.trim()) {
-                                    await createCategory({
-                                      name: newCategory.name.trim(),
-                                      parent_type: null,
-                                      parent_id: mainCat.id,
-                                      color: "#64748b",
-                                      icon: "tag",
-                                      sort_order: subCategories.length,
-                                    });
-                                    setNewCategory(null);
-                                  }
-                                }}
-                              >
-                                <Check className="h-4 w-4 text-[#22c55e]" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-
-                          {subCategories.length === 0 && newCategory?.parentId !== mainCat.id && (
-                            <div className="px-4 lg:px-6 py-4 text-center">
-                              <p className="text-sm text-[var(--text-muted)]">
-                                Ingen underkategorier
-                              </p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-2"
-                                onClick={() => setNewCategory({ parentType: null, parentId: mainCat.id, name: "" })}
-                              >
-                                <Plus className="h-4 w-4" />
-                                Legg til underkategori
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  );
-                })}
-
-              {/* Default Budget Type Sections */}
-              {(["income", "fixed_expense", "variable_expense", "loan"] as BudgetEntryType[]).map(
-                (type) => {
-                  const config = ENTRY_TYPE_CONFIG[type];
-                  const Icon = config.icon;
-                  const typeCategories = categories.filter(
-                    (c) => c.parent_type === type && !c.parent_id
-                  );
-
-                  return (
-                    <Card key={type}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="flex h-8 w-8 items-center justify-center rounded-lg"
-                              style={{ backgroundColor: `${config.color}20` }}
-                            >
-                              <Icon className="h-4 w-4" style={{ color: config.color }} />
-                            </div>
-                            <h2 className="font-semibold text-[var(--text-primary)]">
-                              {config.labelPlural}
-                            </h2>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setNewCategory({ parentType: type, parentId: null, name: "" })}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardBody className="p-0">
-                        <div className="divide-y divide-[var(--border-primary)]">
-                          {typeCategories.map((category) => (
-                            <div
-                              key={category.id}
-                              className="flex items-center justify-between px-4 lg:px-6 py-3"
-                            >
-                              <span className="text-[var(--text-primary)]">{category.name}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteCategory(category.id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-[#ef4444]" />
-                              </Button>
-                            </div>
-                          ))}
-
-                          {/* New Category Form */}
-                          {newCategory?.parentType === type && newCategory?.parentId === null && (
-                            <div className="flex items-center gap-2 px-4 lg:px-6 py-3 bg-[var(--bg-secondary)]">
-                              <Input
-                                placeholder="Kategorinavn"
-                                value={newCategory.name}
-                                onChange={(e) =>
-                                  setNewCategory({ ...newCategory, name: e.target.value })
-                                }
-                                className="flex-1"
-                                autoFocus
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={async () => {
-                                  if (newCategory.name.trim()) {
-                                    await createCategory({
-                                      name: newCategory.name.trim(),
-                                      parent_type: newCategory.parentType,
-                                      parent_id: null,
-                                      color: config.color,
-                                      icon: "tag",
-                                      sort_order: typeCategories.length,
-                                    });
-                                    setNewCategory(null);
-                                  }
-                                }}
-                              >
-                                <Check className="h-4 w-4 text-[#22c55e]" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-
-                          {typeCategories.length === 0 &&
-                            !(newCategory?.parentType === type && newCategory?.parentId === null) && (
-                              <div className="px-4 lg:px-6 py-6 text-center">
-                                <p className="text-sm text-[var(--text-muted)]">
-                                  Ingen kategorier lagt til
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-2"
-                                  onClick={() => setNewCategory({ parentType: type, parentId: null, name: "" })}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                  Legg til kategori
-                                </Button>
-                              </div>
-                            )}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  );
-                }
-              )}
-            </>
+                  {mainCategories.length === 0 && !newCategory && (
+                    <div className="px-4 lg:px-6 py-8 text-center">
+                      <Tag className="mx-auto h-8 w-8 text-[var(--text-muted)] mb-2" />
+                      <p className="text-sm text-[var(--text-muted)]">
+                        Ingen kategorier opprettet ennå
+                      </p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">
+                        Kategorier kan velges når du legger til budsjettposter
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
           )}
         </div>
       )}
@@ -796,12 +612,13 @@ interface EntrySectionProps {
   type: BudgetEntryType;
   entries: BudgetEntry[];
   config: (typeof ENTRY_TYPE_CONFIG)[BudgetEntryType];
+  categories: BudgetCategory[];
   editingEntry: string | null;
   editValues: { description: string; amount: string };
   setEditValues: (values: { description: string; amount: string }) => void;
-  newEntry: { type: BudgetEntryType; description: string; amount: string } | null;
+  newEntry: { type: BudgetEntryType; description: string; amount: string; categoryId: string } | null;
   setNewEntry: (
-    entry: { type: BudgetEntryType; description: string; amount: string } | null
+    entry: { type: BudgetEntryType; description: string; amount: string; categoryId: string } | null
   ) => void;
   onAddEntry: () => void;
   onSaveNewEntry: () => void;
@@ -815,6 +632,7 @@ function EntrySection({
   type,
   entries,
   config,
+  categories,
   editingEntry,
   editValues,
   setEditValues,
@@ -882,7 +700,15 @@ function EntrySection({
                 </div>
               ) : (
                 <>
-                  <span className="text-[var(--text-primary)]">{entry.description}</span>
+                  <div className="flex flex-col">
+                    <span className="text-[var(--text-primary)]">{entry.description}</span>
+                    {entry.category_id && (() => {
+                      const cat = categories.find((c) => c.id === entry.category_id);
+                      return cat ? (
+                        <span className="text-xs text-[var(--text-muted)]">{cat.name}</span>
+                      ) : null;
+                    })()}
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-[var(--text-primary)]">
                       {formatCurrency(Number(entry.amount))}
@@ -901,27 +727,42 @@ function EntrySection({
 
           {/* New Entry Form */}
           {newEntry && (
-            <div className="flex items-center gap-2 px-4 lg:px-6 py-2 bg-[var(--bg-secondary)]">
-              <Input
-                placeholder="Beskrivelse"
-                value={newEntry.description}
-                onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
-                className="flex-1"
-                autoFocus
-              />
-              <Input
-                type="number"
-                placeholder="Beløp"
-                value={newEntry.amount}
-                onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                className="w-28 lg:w-32"
-              />
-              <Button variant="ghost" size="sm" onClick={onSaveNewEntry}>
-                <Check className="h-4 w-4 text-[#22c55e]" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setNewEntry(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+            <div className="px-4 lg:px-6 py-3 bg-[var(--bg-secondary)]">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Beskrivelse"
+                  value={newEntry.description}
+                  onChange={(e) => setNewEntry({ ...newEntry, description: e.target.value })}
+                  className="flex-1"
+                  autoFocus
+                />
+                <Input
+                  type="number"
+                  placeholder="Beløp"
+                  value={newEntry.amount}
+                  onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                  className="w-28 lg:w-32"
+                />
+                <Button variant="ghost" size="sm" onClick={onSaveNewEntry}>
+                  <Check className="h-4 w-4 text-[#22c55e]" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setNewEntry(null)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              {categories.length > 0 && (
+                <div className="mt-2">
+                  <Select
+                    value={newEntry.categoryId}
+                    onChange={(e) => setNewEntry({ ...newEntry, categoryId: e.target.value })}
+                    options={[
+                      { value: "", label: "Ingen kategori" },
+                      ...categories.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                    className="w-full sm:w-48"
+                  />
+                </div>
+              )}
             </div>
           )}
 

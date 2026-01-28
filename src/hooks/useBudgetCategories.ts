@@ -6,7 +6,8 @@ export interface BudgetCategory {
   id: string;
   user_id: string;
   name: string;
-  parent_type: BudgetEntryType;
+  parent_type: BudgetEntryType | null;
+  parent_id: string | null;
   color: string;
   icon: string;
   sort_order: number;
@@ -51,9 +52,12 @@ export function useBudgetCategories(parentType?: BudgetEntryType) {
   async function createCategory(category: Omit<BudgetCategory, "id" | "user_id" | "created_at" | "updated_at">) {
     const supabase = createClient();
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
     const { data, error } = await supabase
       .from("budget_categories")
-      .insert([category])
+      .insert([{ ...category, user_id: user.id }])
       .select()
       .single();
 

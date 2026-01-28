@@ -106,10 +106,17 @@ Always respond with valid JSON only, no markdown formatting.`,
                 type: "text",
                 text: `Analyze this receipt image and extract:
 1. Merchant/store name
-2. Date (in YYYY-MM-DD format)
+2. Date (convert to YYYY-MM-DD format)
 3. Total amount
 4. Individual items with their prices and quantities
 5. Suggest a category for each item
+
+IMPORTANT DATE FORMAT:
+- Norwegian receipts use DD.MM.YY or DD.MM.YYYY format
+- Examples: "17.01.26" = January 17, 2026 (not 1926)
+- "25.12.2025" = December 25, 2025
+- Always convert to YYYY-MM-DD format in your response
+- For 2-digit years: 00-49 = 2000-2049, 50-99 = 1950-1999
 
 Respond with ONLY valid JSON in this exact format:
 {

@@ -1,7 +1,7 @@
 {
-  "name": "Receipt Tracker",
-  "short_name": "Receipts",
-  "description": "Track your grocery expenses by scanning receipts",
+  "name": "Budgetbuddy",
+  "short_name": "Budgetbuddy",
+  "description": "Spor utgiftene dine og hold budsjettet",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

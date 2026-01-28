@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kostnadsknuser",
+  title: "Budgetbuddy",
   description: "Spor dagligvareforbruket ditt ved å skanne kvitteringer",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Kostnadsknuser",
+    title: "Budgetbuddy",
   },
 };
 

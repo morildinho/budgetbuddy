@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,11 +23,15 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-[var(--border-primary)] px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-primary)]">
-            <Wallet className="h-5 w-5 text-[var(--bg-primary)]" />
-          </div>
+          <Image
+            src="/logo.webp"
+            alt="Budgetbuddy"
+            width={36}
+            height={36}
+            className="rounded-lg"
+          />
           <span className="text-lg font-semibold text-[var(--text-primary)]">
-            Kostnadsknuser
+            Budgetbuddy
           </span>
         </div>
 

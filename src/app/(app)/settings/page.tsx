@@ -212,7 +212,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-3 text-sm text-[var(--text-muted)]">
-              <p>Kostnadsknuser v1.0.0</p>
+              <p>Budgetbuddy v1.0.0</p>
               {isAdmin && <p>Bygget med Next.js, Supabase og Tailwind CSS</p>}
 
               <Link

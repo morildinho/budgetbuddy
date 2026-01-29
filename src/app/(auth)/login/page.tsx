@@ -61,9 +61,6 @@ export default function LoginPage() {
             priority
           />
         </div>
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-4">
-          Budgetbuddy
-        </h1>
         <p className="text-[var(--text-secondary)] leading-relaxed">
           Budgetbuddy gir deg oversikt over utgiftene dine, og gir deg kontroll
           over hva du bruker penger på i løpet av en gitt periode. Scan eller

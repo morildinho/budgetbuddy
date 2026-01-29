@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
   { href: "/", icon: Home, label: "Oversikt" },
@@ -17,22 +18,28 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] lg:block">
       <div className="flex h-full flex-col">
         {/* Logo */}
-        <div className="flex h-20 items-center gap-3 border-b border-[var(--border-primary)] px-6">
-          <Image
-            src="/logo.webp"
-            alt="Budgetbuddy"
-            width={52}
-            height={52}
-            className="rounded-lg"
-          />
-          <span className="text-lg font-semibold text-[var(--text-primary)]">
-            Budgetbuddy
-          </span>
+        <div className="border-b border-[var(--border-primary)] px-4 py-4">
+          <div className="relative h-16 w-full">
+            <Image
+              src="/logo.png"
+              alt="Budgetbuddy"
+              fill
+              className="object-contain object-left"
+              priority
+            />
+          </div>
         </div>
 
         {/* Navigation */}
@@ -64,12 +71,13 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="border-t border-[var(--border-primary)] p-4">
-          <div className="rounded-lg bg-[var(--bg-card)] p-4">
-            <p className="text-xs text-[var(--text-muted)]">Spor forbruket ditt</p>
-            <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-              Hold budsjettet
-            </p>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--text-secondary)] transition-all duration-200 hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]"
+          >
+            <LogOut className="h-5 w-5" />
+            <span>Logg ut</span>
+          </button>
         </div>
       </div>
     </aside>

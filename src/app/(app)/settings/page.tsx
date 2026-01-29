@@ -5,15 +5,23 @@ export const dynamic = 'force-dynamic';
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { Settings, Download, Trash2, Info, Sparkles, Loader2, HelpCircle } from "lucide-react";
+import { Settings, Download, Trash2, Info, Sparkles, Loader2, HelpCircle, LogOut } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function SettingsPage() {
   const { user, loading: userLoading, isAdmin } = useUser();
   const [exporting, setExporting] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -200,6 +208,23 @@ export default function SettingsPage() {
             </p>
 
             <Button variant="danger">Slett alle data</Button>
+          </CardBody>
+        </Card>
+
+        {/* Logout */}
+        <Card>
+          <CardBody className="p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-[var(--text-secondary)]" />
+              <h2 className="font-semibold text-[var(--text-primary)]">Konto</h2>
+            </div>
+            <p className="mb-4 text-sm text-[var(--text-muted)]">
+              Logget inn som {user?.email}
+            </p>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              Logg ut
+            </Button>
           </CardBody>
         </Card>
 

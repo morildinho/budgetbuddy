@@ -83,6 +83,7 @@ export default function SignUpPage() {
 
   if (success) {
     return (
+      <div className="mx-auto max-w-md">
       <Card>
         <CardBody className="p-8">
           <div className="flex flex-col items-center text-center">
@@ -102,10 +103,12 @@ export default function SignUpPage() {
           </div>
         </CardBody>
       </Card>
+      </div>
     );
   }
 
   return (
+    <div className="mx-auto max-w-md">
     <Card>
       <CardBody className="p-8">
         {/* Logo */}
@@ -184,5 +187,6 @@ export default function SignUpPage() {
         </p>
       </CardBody>
     </Card>
+    </div>
   );
 }

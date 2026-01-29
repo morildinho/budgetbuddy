@@ -97,12 +97,31 @@ Important category rules:
 - Leverpostei → Pålegg (not Mat)
 - Kaffe products → Kaffe (not Godteri)
 
-CRITICAL PARSING RULES - READ CAREFULLY:
-1. Each receipt line has the item name on the LEFT and the price on the RIGHT of the SAME line. You MUST match each item to the price on its own line. Never shift or mix prices between lines.
-2. Lines starting with "+ Pant" or "Pant" are deposit/recycle fees. Each Pant line has its OWN price - do NOT copy the price from another Pant line. Read each Pant amount independently.
-3. Do NOT assume similar items have the same price. For example, "BURGERBRØD GROVE 2STK" and "BURGERBRØD GROVE 6STK" will have DIFFERENT prices - read each one separately from the receipt.
-4. Norwegian receipts typically show: ITEM NAME | MVA% | PRICE. The rightmost number on each line is the price for that specific item.
-5. Process the receipt line by line from top to bottom. For each line, read the item name and price independently.
+CRITICAL PARSING RULES - READ VERY CAREFULLY:
+
+Norwegian grocery receipts have THREE columns per line:
+  COLUMN 1: Item name (left)
+  COLUMN 2: Tax/MVA percentage like "15%" or "0%" (middle) - THIS IS NOT THE PRICE
+  COLUMN 3: Price in kroner like "34,90" (far right) - THIS IS THE PRICE
+
+Example from a real receipt:
+  JULIUS FAVORITTBRØD 750    15%    34,90
+  BURGERBRØD GROVE 2STK      15%    16,90
+  BURGERBRØD GROVE 6STK      15%    27,90
+  + Pant                      0%     3,00
+
+In this example:
+- Julius Favorittbrød costs 34,90 (NOT 15, NOT 16,90)
+- Burgerbrød Grove 2STK costs 16,90 (NOT 27,90)
+- Burgerbrød Grove 6STK costs 27,90 (NOT 16,90)
+- Pant costs 3,00 (NOT 0 - the "0%" is the tax rate, not the price)
+
+RULES:
+1. The PRICE is ALWAYS the rightmost number on each line (a decimal amount like 34,90). The percentage (like 15% or 0%) is the TAX RATE, never the price.
+2. Match each item to the price on its OWN line only. Never shift prices between lines.
+3. For "+ Pant" lines: the 0% is the tax rate. The price is the number AFTER the 0%, like 3,00 or 12,00. Never use 0 as a Pant price.
+4. Similar items can have DIFFERENT prices. Read each price independently.
+5. Process line by line from top to bottom.
 
 Always respond with valid JSON only, no markdown formatting.`,
           },

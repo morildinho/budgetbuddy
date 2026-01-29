@@ -104,24 +104,40 @@ Norwegian grocery receipts have THREE columns per line:
   COLUMN 2: Tax/MVA percentage like "15%" or "0%" (middle) - THIS IS NOT THE PRICE
   COLUMN 3: Price in kroner like "34,90" (far right) - THIS IS THE PRICE
 
-Example from a real receipt:
+Example 1 - items with different prices:
   JULIUS FAVORITTBRØD 750    15%    34,90
   BURGERBRØD GROVE 2STK      15%    16,90
   BURGERBRØD GROVE 6STK      15%    27,90
-  + Pant                      0%     3,00
 
-In this example:
-- Julius Favorittbrød costs 34,90 (NOT 15, NOT 16,90)
-- Burgerbrød Grove 2STK costs 16,90 (NOT 27,90)
-- Burgerbrød Grove 6STK costs 27,90 (NOT 16,90)
-- Pant costs 3,00 (NOT 0 - the "0%" is the tax rate, not the price)
+Correct reading:
+- Line 1: Julius Favorittbrød → 34,90
+- Line 2: Burgerbrød Grove 2STK → 16,90
+- Line 3: Burgerbrød Grove 6STK → 27,90
+
+Example 2 - MULTIPLE Pant lines with DIFFERENT prices:
+  COCA-COLA ZERO 1,5LX4 F    15%    79,90
+  + Pant                       0%    12,00
+  COCA-COLA ZERO 1,5LX4 F    15%    79,90
+  + Pant                       0%    12,00
+  HUSHOLDNINGSSAFT U/SUKK     15%    36,90
+  + Pant                       0%     3,00
+
+Correct reading:
+- Line 1: Coca-Cola Zero → 79,90
+- Line 2: Pant → 12,00 (the rightmost number on THIS line)
+- Line 3: Coca-Cola Zero → 79,90
+- Line 4: Pant → 12,00 (the rightmost number on THIS line)
+- Line 5: Husholdningssaft → 36,90
+- Line 6: Pant → 3,00 (the rightmost number on THIS line - NOT 12,00!)
+
+CRITICAL: The three Pant lines above have DIFFERENT prices (12, 12, and 3). You MUST read each Pant line's price independently. Do NOT copy a price from another Pant line.
 
 RULES:
 1. The PRICE is ALWAYS the rightmost number on each line (a decimal amount like 34,90). The percentage (like 15% or 0%) is the TAX RATE, never the price.
 2. Match each item to the price on its OWN line only. Never shift prices between lines.
-3. For "+ Pant" lines: the 0% is the tax rate. The price is the number AFTER the 0%, like 3,00 or 12,00. Never use 0 as a Pant price.
-4. Similar items can have DIFFERENT prices. Read each price independently.
-5. Process line by line from top to bottom.
+3. For "+ Pant" lines: the 0% is the tax rate. The price is the rightmost decimal number on that specific line. Never use 0 as a Pant price.
+4. IDENTICAL item names can have DIFFERENT prices. Read each price from its own line independently. This applies especially to "+ Pant" lines.
+5. Process line by line from top to bottom. Never look at other lines to determine a line's price.
 
 Always respond with valid JSON only, no markdown formatting.`,
           },
@@ -167,9 +183,9 @@ If you cannot read something clearly, use your best guess and set a lower confid
 If you cannot determine the date, use today's date.
 Norwegian kroner amounts should be parsed correctly (comma as decimal separator sometimes).
 
-IMPORTANT: Lines with "+ Pant" are deposit fees (pant) and should be treated as separate items with category "Annet". Each Pant line has its own unique price - read it directly from that line. Do NOT assume all Pant lines have the same price.
+IMPORTANT: Lines with "+ Pant" are deposit fees (pant) and should be treated as separate items with category "Annet". Different Pant lines often have DIFFERENT prices (e.g., 12,00 vs 3,00). You MUST read each Pant line's price from the rightmost number on THAT specific line. Never assume Pant lines share the same price. Never copy a price from another Pant line.
 
-Read EVERY price independently from its own line. Never copy a price from a neighboring line.`,
+Read EVERY price independently from its own line. Never copy a price from any other line, even if the item name is identical.`,
               },
               {
                 type: "image_url",

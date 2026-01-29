@@ -92,10 +92,17 @@ Use these Norwegian categories (use the exact Norwegian names):
 - Personlig pleie (hygiene, kosmetikk)
 - Annet (pant, diverse)
 
-Important rules:
+Important category rules:
 - Fiskegrateng → Fisk (not Mat)
 - Leverpostei → Pålegg (not Mat)
 - Kaffe products → Kaffe (not Godteri)
+
+CRITICAL PARSING RULES - READ CAREFULLY:
+1. Each receipt line has the item name on the LEFT and the price on the RIGHT of the SAME line. You MUST match each item to the price on its own line. Never shift or mix prices between lines.
+2. Lines starting with "+ Pant" or "Pant" are deposit/recycle fees. Each Pant line has its OWN price - do NOT copy the price from another Pant line. Read each Pant amount independently.
+3. Do NOT assume similar items have the same price. For example, "BURGERBRØD GROVE 2STK" and "BURGERBRØD GROVE 6STK" will have DIFFERENT prices - read each one separately from the receipt.
+4. Norwegian receipts typically show: ITEM NAME | MVA% | PRICE. The rightmost number on each line is the price for that specific item.
+5. Process the receipt line by line from top to bottom. For each line, read the item name and price independently.
 
 Always respond with valid JSON only, no markdown formatting.`,
           },
@@ -139,7 +146,11 @@ Respond with ONLY valid JSON in this exact format:
 
 If you cannot read something clearly, use your best guess and set a lower confidence score (0.0-1.0).
 If you cannot determine the date, use today's date.
-Norwegian kroner amounts should be parsed correctly (comma as decimal separator sometimes).`,
+Norwegian kroner amounts should be parsed correctly (comma as decimal separator sometimes).
+
+IMPORTANT: Lines with "+ Pant" are deposit fees (pant) and should be treated as separate items with category "Annet". Each Pant line has its own unique price - read it directly from that line. Do NOT assume all Pant lines have the same price.
+
+Read EVERY price independently from its own line. Never copy a price from a neighboring line.`,
               },
               {
                 type: "image_url",

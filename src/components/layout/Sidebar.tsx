@@ -3,28 +3,41 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle, LogOut } from "lucide-react";
+import { Home, Receipt, BarChart3, Settings, Wallet, HelpCircle, LogOut, Landmark, TrendingUp, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { usePermissions } from "@/hooks/usePermissions";
 
-const navItems = [
-  { href: "/", icon: Home, label: "Oversikt" },
-  { href: "/receipts", icon: Receipt, label: "Kvitteringer" },
-  { href: "/analytics", icon: BarChart3, label: "Analyse" },
-  { href: "/budget", icon: Wallet, label: "Budsjett" },
-  { href: "/settings", icon: Settings, label: "Innstillinger" },
-  { href: "/help", icon: HelpCircle, label: "Hjelp" },
+const allNavItems = [
+  { href: "/", icon: Home, label: "Oversikt", permKey: "overview", ownerOnly: false },
+  { href: "/receipts", icon: Receipt, label: "Kvitteringer", permKey: "receipts", ownerOnly: false },
+  { href: "/transactions", icon: Landmark, label: "Transaksjoner", permKey: "transactions", ownerOnly: false },
+  { href: "/bank", icon: Building2, label: "Bank (Tink)", permKey: "transactions", ownerOnly: true },
+  { href: "/analytics", icon: BarChart3, label: "Analyse", permKey: "analytics", ownerOnly: false },
+  { href: "/budget", icon: Wallet, label: "Budsjett", permKey: "budget", ownerOnly: false },
+  { href: "/portfolio", icon: TrendingUp, label: "Portefølje", permKey: "portfolio", ownerOnly: false },
+  { href: "/settings", icon: Settings, label: "Innstillinger", permKey: null, ownerOnly: false },
+  { href: "/help", icon: HelpCircle, label: "Hjelp", permKey: null, ownerOnly: false },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { canView, isOwner, loading: permLoading } = usePermissions();
 
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  const navItems = allNavItems.filter((item) => {
+    if (item.ownerOnly && !isOwner) return false;
+    if (!item.permKey) return true; // always show (settings, help)
+    if (isOwner) return true; // owners see everything
+    if (permLoading) return false; // fail closed while permissions load
+    return canView[item.permKey as keyof typeof canView] === true;
+  });
 
   return (
     <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] lg:block">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { BudgetEntryType } from "@/types/database";
 
@@ -20,11 +20,7 @@ export function useBudgetCategories(parentType?: BudgetEntryType) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [parentType]);
-
-  async function fetchCategories() {
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
 
@@ -47,7 +43,11 @@ export function useBudgetCategories(parentType?: BudgetEntryType) {
     }
 
     setLoading(false);
-  }
+  }, [parentType]);
+
+  useEffect(() => {
+    window.setTimeout(() => fetchCategories(), 0);
+  }, [fetchCategories]);
 
   async function createCategory(category: Omit<BudgetCategory, "id" | "user_id" | "created_at" | "updated_at">) {
     const supabase = createClient();

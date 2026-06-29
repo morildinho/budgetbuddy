@@ -10,6 +10,7 @@ export interface User {
 
 export interface Category {
   id: string;
+  user_id: string;
   name: string;
   parent_category: string | null;
   color: string;
@@ -164,6 +165,76 @@ export interface BudgetEntryInsert {
 
 export type BudgetEntryUpdate = Partial<Omit<BudgetEntry, 'id' | 'budget_id' | 'created_at'>>;
 
+// ============================================
+// Bank Integration Types
+// ============================================
+
+export type BankConnectionStatus = 'active' | 'expired' | 'disconnected';
+
+export interface BankConnection {
+  id: string;
+  user_id: string;
+  provider: string;
+  bank_name: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expires_at: string | null;
+  status: BankConnectionStatus;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BankConnectionInsert {
+  user_id: string;
+  provider?: string;
+  bank_name?: string | null;
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_expires_at?: string | null;
+  status?: BankConnectionStatus;
+}
+
+export type BankConnectionUpdate = Partial<Omit<BankConnection, 'id' | 'user_id' | 'created_at'>>;
+
+export interface BankTransaction {
+  id: string;
+  user_id: string;
+  bank_account_id: string | null;
+  account_id: string | null;
+  transaction_id: string | null;
+  source: string;
+  date: string;
+  description: string;
+  amount: number;
+  category_id: string | null;
+  receipt_id: string | null;
+  budget_entry_id: string | null;
+  raw_data: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  category?: Category;
+  receipt?: Receipt;
+  budget_entry?: BudgetEntry;
+}
+
+export interface BankTransactionInsert {
+  user_id: string;
+  bank_account_id?: string | null;
+  transaction_id?: string | null;
+  source?: string;
+  date: string;
+  description: string;
+  amount: number;
+  category_id?: string | null;
+  receipt_id?: string | null;
+  budget_entry_id?: string | null;
+  raw_data?: Record<string, unknown> | null;
+}
+
+export type BankTransactionUpdate = Partial<Omit<BankTransaction, 'id' | 'user_id' | 'created_at'>>;
+
 // Computed budget stats
 export interface BudgetStats {
   totalFixedExpenses: number;
@@ -171,4 +242,5 @@ export interface BudgetStats {
   totalLoans: number;
   totalIncome: number;
   balance: number; // income - (fixed + variable + loans)
+  totalActualExpenses: number; // sum of linked bank transaction amounts
 }

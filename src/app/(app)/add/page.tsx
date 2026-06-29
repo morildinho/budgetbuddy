@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { CategoryPicker } from "@/components/ui/CategoryPicker";
 import {
   Camera,
   Upload,
@@ -472,9 +472,9 @@ export default function AddReceiptPage() {
                           placeholder="Pris"
                           className="w-24"
                         />
-                        <Select
+                        <CategoryPicker
                           value={item.category_id || ""}
-                          onChange={(e) => handleCategorySelectChange(index, e.target.value)}
+                          onChange={(value) => handleCategorySelectChange(index, value)}
                           options={categoryOptions}
                           className="flex-1"
                         />
@@ -525,11 +525,11 @@ export default function AddReceiptPage() {
                             </div>
                           ) : (
                             <>
-                              <Select
+                              <CategoryPicker
                                 value={item.category_id || ""}
-                                onChange={(e) => handleCategorySelectChange(index, e.target.value)}
+                                onChange={(value) => handleCategorySelectChange(index, value)}
                                 options={categoryOptions}
-                                className="text-sm h-9 min-w-[150px]"
+                                className="text-sm min-w-[150px]"
                               />
                               {item.userCorrected && (
                                 <span className="text-xs text-[var(--accent-success)]">✓</span>
@@ -592,11 +592,10 @@ export default function AddReceiptPage() {
               required
             />
 
-            <Select
+            <CategoryPicker
               label="Kvitteringskategori"
-              name="category_id"
               value={form.category_id}
-              onChange={handleChange}
+              onChange={(value) => setForm((prev) => ({ ...prev, category_id: value }))}
               options={categoryOptions}
               disabled={categoriesLoading}
             />

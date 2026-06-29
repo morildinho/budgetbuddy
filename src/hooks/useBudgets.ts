@@ -18,6 +18,7 @@ interface UseBudgetOptions {
 interface UseBudgetReturn {
   budget: Budget | null;
   entries: BudgetEntry[];
+  actualSpending: Record<string, number>;
   loading: boolean;
   error: string | null;
   stats: BudgetStats;
@@ -54,6 +55,7 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
   const [currentMonth, setCurrentMonth] = useState(options.month || getCurrentMonth());
   const [budget, setBudget] = useState<Budget | null>(null);
   const [entries, setEntries] = useState<BudgetEntry[]>([]);
+  const [actualSpending, setActualSpending] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
@@ -78,14 +80,17 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
 
     const balance = totalIncome - (totalFixedExpenses + totalVariableExpenses + totalLoans);
 
+    const totalActualExpenses = Object.values(actualSpending).reduce((sum, v) => sum + v, 0);
+
     return {
       totalFixedExpenses,
       totalVariableExpenses,
       totalLoans,
       totalIncome,
       balance,
+      totalActualExpenses,
     };
-  }, [entries]);
+  }, [entries, actualSpending]);
 
   // Fetch budget and entries for current month
   const fetchBudget = useCallback(async () => {
@@ -116,9 +121,29 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
           (a: BudgetEntry, b: BudgetEntry) => a.sort_order - b.sort_order
         );
         setEntries(sortedEntries);
+
+        // Fetch actual spending from linked bank transactions
+        const entryIds = sortedEntries.map((e: BudgetEntry) => e.id);
+        if (entryIds.length > 0) {
+          const { data: txns } = await supabase
+            .from("bank_transactions")
+            .select("budget_entry_id, amount")
+            .in("budget_entry_id", entryIds);
+
+          const spending: Record<string, number> = {};
+          for (const txn of txns || []) {
+            if (txn.budget_entry_id) {
+              spending[txn.budget_entry_id] = (spending[txn.budget_entry_id] || 0) + Math.abs(Number(txn.amount));
+            }
+          }
+          setActualSpending(spending);
+        } else {
+          setActualSpending({});
+        }
       } else {
         setBudget(null);
         setEntries([]);
+        setActualSpending({});
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Kunne ikke hente budsjett";
@@ -380,6 +405,7 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
   return {
     budget,
     entries,
+    actualSpending,
     loading,
     error,
     stats,

@@ -46,8 +46,25 @@ export default function SignUpPage() {
       return;
     }
 
-    // Check email allowlist (beta restriction)
-    if (!ALLOWED_EMAILS.includes(form.email.toLowerCase())) {
+    // Check email allowlist (beta restriction) unless this signup came from a valid invite.
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    const inviteToken = returnTo?.match(/^\/invite\/([^/]+)\/accept$/)?.[1] ?? null;
+    let inviteAllowsSignup = false;
+    if (inviteToken) {
+      try {
+        const inviteRes = await fetch(`/api/household/invite/${inviteToken}`);
+        if (inviteRes.ok) {
+          const inviteData = await inviteRes.json();
+          const inviteEmail = inviteData.invite?.invite_email?.toLowerCase();
+          inviteAllowsSignup = !inviteEmail || inviteEmail === form.email.toLowerCase();
+        }
+      } catch {
+        inviteAllowsSignup = false;
+      }
+    }
+
+    if (!inviteAllowsSignup && !ALLOWED_EMAILS.includes(form.email.toLowerCase())) {
       setError("Denne e-postadressen er ikke invitert til beta. Kontakt administrator for tilgang.");
       setIsLoading(false);
       return;

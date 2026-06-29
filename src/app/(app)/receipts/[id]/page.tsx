@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { CategoryPicker } from "@/components/ui/CategoryPicker";
 import {
   ArrowLeft,
   Trash2,
@@ -230,11 +230,10 @@ export default function ReceiptDetailPage() {
                 required
               />
 
-              <Select
+              <CategoryPicker
                 label="Kategori"
-                name="category_id"
                 value={editForm.category_id}
-                onChange={handleChange}
+                onChange={(value) => setEditForm((prev) => ({ ...prev, category_id: value }))}
                 options={categoryOptions}
               />
 

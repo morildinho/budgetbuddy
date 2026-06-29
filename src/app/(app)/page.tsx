@@ -193,17 +193,16 @@ export default function DashboardPage() {
 
   // Calculate donut chart segments
   const donutSegments = useMemo(() => {
-    let currentAngle = -90; // Start from top
-    return categoryBreakdown.map((cat) => {
+    return categoryBreakdown.reduce<Array<(typeof categoryBreakdown)[number] & { startAngle: number; endAngle: number }>>((segments, cat) => {
+      const startAngle = segments.length > 0 ? segments[segments.length - 1].endAngle : -90;
       const angle = (cat.percentage / 100) * 360;
-      const segment = {
+      segments.push({
         ...cat,
-        startAngle: currentAngle,
-        endAngle: currentAngle + angle,
-      };
-      currentAngle += angle;
-      return segment;
-    });
+        startAngle,
+        endAngle: startAngle + angle,
+      });
+      return segments;
+    }, []);
   }, [categoryBreakdown]);
 
   if (loading) {

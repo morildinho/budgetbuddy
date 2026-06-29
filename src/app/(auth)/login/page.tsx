@@ -37,7 +37,10 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/");
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    const safeReturnTo = returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+    router.push(safeReturnTo);
     router.refresh();
   };
 

@@ -100,6 +100,7 @@ export default function BudgetPage() {
 
   const {
     entries,
+    actualSpending,
     loading,
     error,
     stats,
@@ -334,6 +335,20 @@ export default function BudgetPage() {
                   </p>
                 </div>
               </div>
+              {stats.totalActualExpenses > 0 && (
+                <div className="mt-4 border-t border-[var(--border-primary)] pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs lg:text-sm text-[var(--text-muted)]">Faktisk forbruk (koblet)</p>
+                    <p className={`text-sm font-bold ${
+                      stats.totalActualExpenses > (stats.totalFixedExpenses + stats.totalVariableExpenses + stats.totalLoans)
+                        ? "text-[#ef4444]"
+                        : "text-[#22c55e]"
+                    }`}>
+                      {formatCurrency(stats.totalActualExpenses)} / {formatCurrency(stats.totalFixedExpenses + stats.totalVariableExpenses + stats.totalLoans)}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardBody>
           </Card>
 
@@ -347,6 +362,7 @@ export default function BudgetPage() {
                   entries={groupedEntries[type]}
                   config={ENTRY_TYPE_CONFIG[type]}
                   categories={mainCategories}
+                  actualSpending={actualSpending}
                   editingEntry={editingEntry}
                   editValues={editValues}
                   setEditValues={setEditValues}
@@ -613,6 +629,7 @@ interface EntrySectionProps {
   entries: BudgetEntry[];
   config: (typeof ENTRY_TYPE_CONFIG)[BudgetEntryType];
   categories: BudgetCategory[];
+  actualSpending: Record<string, number>;
   editingEntry: string | null;
   editValues: { description: string; amount: string };
   setEditValues: (values: { description: string; amount: string }) => void;
@@ -629,10 +646,10 @@ interface EntrySectionProps {
 }
 
 function EntrySection({
-  type,
   entries,
   config,
   categories,
+  actualSpending,
   editingEntry,
   editValues,
   setEditValues,
@@ -700,25 +717,57 @@ function EntrySection({
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col">
-                    <span className="text-[var(--text-primary)]">{entry.description}</span>
+                  <div className="flex flex-1 flex-col min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[var(--text-primary)]">{entry.description}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-[var(--text-primary)]">
+                          {formatCurrency(Number(entry.amount))}
+                        </span>
+                        <Button variant="ghost" size="sm" onClick={() => onStartEdit(entry)}>
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => onDeleteEntry(entry.id)}>
+                          <Trash2 className="h-3 w-3 text-[#ef4444]" />
+                        </Button>
+                      </div>
+                    </div>
                     {entry.category_id && (() => {
                       const cat = categories.find((c) => c.id === entry.category_id);
                       return cat ? (
                         <span className="text-xs text-[var(--text-muted)]">{cat.name}</span>
                       ) : null;
                     })()}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {formatCurrency(Number(entry.amount))}
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={() => onStartEdit(entry)}>
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onDeleteEntry(entry.id)}>
-                      <Trash2 className="h-3 w-3 text-[#ef4444]" />
-                    </Button>
+                    {(() => {
+                      const actual = actualSpending[entry.id] || 0;
+                      if (actual === 0) return null;
+                      const budgeted = Number(entry.amount);
+                      const pct = budgeted > 0 ? Math.min((actual / budgeted) * 100, 100) : 0;
+                      const over = actual > budgeted;
+                      return (
+                        <div className="mt-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className={over ? "text-[#ef4444]" : "text-[var(--text-muted)]"}>
+                              {formatCurrency(actual)} / {formatCurrency(budgeted)}
+                            </span>
+                            {over && (
+                              <span className="font-medium text-[#ef4444]">
+                                +{formatCurrency(actual - budgeted)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 h-1.5 w-full rounded-full bg-[var(--bg-secondary)]">
+                            <div
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundColor: over ? "#ef4444" : "#22c55e",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </>
               )}

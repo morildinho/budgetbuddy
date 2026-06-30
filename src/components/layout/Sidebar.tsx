@@ -12,7 +12,7 @@ const allNavItems = [
   { href: "/", icon: Home, label: "Oversikt", permKey: "overview", ownerOnly: false },
   { href: "/receipts", icon: Receipt, label: "Kvitteringer", permKey: "receipts", ownerOnly: false },
   { href: "/transactions", icon: Landmark, label: "Transaksjoner", permKey: "transactions", ownerOnly: false },
-  { href: "/bank", icon: Building2, label: "Bank (Tink)", permKey: "transactions", ownerOnly: true },
+  { href: "/bank", icon: Building2, label: "Bank", permKey: "transactions", ownerOnly: true },
   { href: "/analytics", icon: BarChart3, label: "Analyse", permKey: "analytics", ownerOnly: false },
   { href: "/budget", icon: Wallet, label: "Budsjett", permKey: "budget", ownerOnly: false },
   { href: "/portfolio", icon: TrendingUp, label: "Portefølje", permKey: "portfolio", ownerOnly: false },

@@ -76,7 +76,7 @@ export function useBankTransactions(options: UseBankTransactionsOptions = {}): U
         query = query.eq("category_id", categoryId);
       }
       if (accountId) {
-        query = query.or(`bank_account_id.eq.${accountId},account_id.eq.${accountId}`);
+        query = query.eq("bank_account_id", accountId);
       }
       if (unmatched) {
         query = query.is("receipt_id", null);
@@ -182,13 +182,13 @@ export function useBankTransactions(options: UseBankTransactionsOptions = {}): U
   };
 }
 
-// Hook to get bank accounts from all sources (SB1 + Tink)
+// Hook to get SpareBank 1 accounts
 export interface BankAccount {
   id: string;
   name: string;
   accountNumber: string | null;
   balance: number | null;
-  source: "sb1" | "tink";
+  source: "sb1";
 }
 
 export function useBankAccounts() {
@@ -198,47 +198,26 @@ export function useBankAccounts() {
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch from both sources in parallel
-      const [sb1Res, tinkRes] = await Promise.allSettled([
-        fetch("/api/bank/accounts"),
-        fetch("/api/bank/tink/accounts"),
-      ]);
-
-      const merged: BankAccount[] = [];
-
-      // SB1 accounts
-      if (sb1Res.status === "fulfilled" && sb1Res.value.ok) {
-        const sb1Data = await sb1Res.value.json();
-        const sb1Accounts = (sb1Data.accounts || []).map(
-          (acc: { id: string; name: string; accountNumber?: string | null; balance?: number | null }) => ({
-            id: acc.id,
-            name: acc.name,
-            accountNumber: acc.accountNumber || null,
-            balance: acc.balance ?? null,
-            source: "sb1" as const,
-          })
-        );
-        merged.push(...sb1Accounts);
+      const response = await fetch("/api/bank/accounts");
+      if (!response.ok) {
+        setAccounts([]);
+        return;
       }
 
-      // Tink accounts
-      if (tinkRes.status === "fulfilled" && tinkRes.value.ok) {
-        const tinkData = await tinkRes.value.json();
-        const tinkAccounts = (tinkData.accounts || []).map(
-          (acc: { id: string; name: string; iban?: string | null; balance_amount?: number | null }) => ({
-            id: acc.id,
-            name: acc.name,
-            accountNumber: acc.iban ? acc.iban.slice(-4) : null,
-            balance: acc.balance_amount ?? null,
-            source: "tink" as const,
-          })
-        );
-        merged.push(...tinkAccounts);
-      }
-
-      setAccounts(merged);
+      const data = await response.json();
+      const sb1Accounts = (data.accounts || []).map(
+        (acc: { id: string; name: string; accountNumber?: string | null; balance?: number | null }) => ({
+          id: acc.id,
+          name: acc.name,
+          accountNumber: acc.accountNumber || null,
+          balance: acc.balance ?? null,
+          source: "sb1" as const,
+        })
+      );
+      setAccounts(sb1Accounts);
     } catch (err) {
       console.error("Error fetching bank accounts:", err);
+      setAccounts([]);
     } finally {
       setLoading(false);
     }

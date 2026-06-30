@@ -18,37 +18,31 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface BankAccount {
   id: string;
-  tink_account_id: string;
   name: string;
-  iban: string | null;
-  type: string | null;
-  balance_amount: number | null;
-  balance_currency: string;
-  last_refreshed_at: string | null;
+  accountNumber: string | null;
+  balance: number | null;
 }
 
 interface BankTransaction {
   id: string;
-  tink_transaction_id: string;
   amount: number;
-  currency: string;
   description: string;
   date: string;
-  category: string | null;
-  status: string;
+  category: { name: string } | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function maskIban(iban: string | null): string {
-  if (!iban) return "—";
-  if (iban.length <= 8) return iban;
-  return iban.slice(0, 4) + " •••• •••• " + iban.slice(-4);
+function maskAccountNumber(accountNumber: string | null): string {
+  if (!accountNumber) return "—";
+  if (accountNumber.length <= 4) return accountNumber;
+  return `•••• ${accountNumber.slice(-4)}`;
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -71,7 +65,7 @@ export default function BankPage() {
   const loadAccounts = useCallback(async () => {
     setLoadingAccounts(true);
     try {
-      const res = await fetch("/api/bank/tink/accounts");
+      const res = await fetch("/api/bank/accounts");
       if (!res.ok) throw new Error("feil");
       const data = await res.json();
       setAccounts(data.accounts || []);
@@ -95,11 +89,11 @@ export default function BankPage() {
       const msgs: Record<string, string> = {
         auth_denied: "Tilkobling avvist av bruker.",
         no_code: "Ingen autorisasjonskode mottatt.",
-        no_credentials: "Ingen banktilkobling ble returnert fra Tink.",
+        no_credentials: "Ingen banktilkobling ble returnert fra SpareBank 1.",
         invalid_state: "Tilkoblingen kunne ikke verifiseres. Prøv igjen.",
         config_error: "Konfigurasjonsfeil.",
         token_failed: "Kunne ikke fullføre tilkobling.",
-        token_expired: "Tink-tilgangen utløp. Prøv å koble til på nytt.",
+        token_expired: "SpareBank 1-tilgangen utløp. Prøv å koble til på nytt.",
         save_failed: "Kunne ikke lagre tilkobling.",
         sync_failed: "Banken ble koblet til, men kontoene kunne ikke hentes ennå.",
         callback_failed: "Noe gikk galt under tilkobling.",
@@ -114,14 +108,14 @@ export default function BankPage() {
   const connectBank = async () => {
     try {
       setStatusMsg(null);
-      const res = await fetch("/api/bank/tink/link");
+      const res = await fetch("/api/bank/connect");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Kunne ikke starte bankkobling.");
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
+      if (data.url) {
+        window.location.href = data.url;
         return;
       }
-      throw new Error("Tink returnerte ingen banklenke.");
+      throw new Error("SpareBank 1 returnerte ingen banklenke.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Kunne ikke starte bankkobling.";
       setStatusMsg({ text: message, ok: false });
@@ -134,7 +128,7 @@ export default function BankPage() {
     setRefreshing(true);
     setStatusMsg(null);
     try {
-      const res = await fetch("/api/bank/tink/refresh", { method: "POST" });
+      const res = await fetch("/api/bank/transactions", { method: "POST" });
       if (!res.ok) throw new Error("feil");
       const data = await res.json();
       setStatusMsg({ text: data.message || "Oppdatert!", ok: true });
@@ -160,10 +154,20 @@ export default function BankPage() {
 
     setLoadingTxns((prev) => ({ ...prev, [accountId]: true }));
     try {
-      const res = await fetch(`/api/bank/tink/transactions?account_id=${accountId}`);
-      if (!res.ok) throw new Error("feil");
-      const data = await res.json();
-      setTransactions((prev) => ({ ...prev, [accountId]: data.transactions || [] }));
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("bank_transactions")
+        .select("id, amount, description, date, category:categories(name)")
+        .eq("source", "sparebank1")
+        .eq("bank_account_id", accountId)
+        .order("date", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      const normalized = (data || []).map((txn) => ({
+        ...txn,
+        category: Array.isArray(txn.category) ? txn.category[0] ?? null : txn.category,
+      }));
+      setTransactions((prev) => ({ ...prev, [accountId]: normalized }));
     } catch {
       setTransactions((prev) => ({ ...prev, [accountId]: [] }));
     } finally {
@@ -185,7 +189,7 @@ export default function BankPage() {
           </h1>
           <p className="text-sm text-[var(--text-muted)]">
             {isConnected
-              ? `${accounts.length} konto${accounts.length !== 1 ? "er" : ""} tilkoblet via Tink`
+              ? `${accounts.length} konto${accounts.length !== 1 ? "er" : ""} tilkoblet via SpareBank 1`
               : "Koble til banken din for å importere transaksjoner"}
           </p>
         </div>
@@ -237,7 +241,7 @@ export default function BankPage() {
             Ingen bank tilkoblet
           </h2>
           <p className="mb-6 max-w-sm text-sm text-[var(--text-muted)]">
-            Koble til banken din via Tink for å importere kontoer og transaksjoner automatisk. 
+            Koble til banken din via SpareBank 1 for å importere kontoer og transaksjoner automatisk. 
             Støtter de fleste norske banker.
           </p>
           <Button variant="primary" onClick={connectBank}>
@@ -269,29 +273,20 @@ export default function BankPage() {
                           {account.name}
                         </p>
                         <p className="text-xs text-[var(--text-muted)]">
-                          {maskIban(account.iban)}
+                          {maskAccountNumber(account.accountNumber)}
                         </p>
-                        {account.type && (
-                          <Badge variant="primary" className="mt-1 text-xs">
-                            {account.type}
-                          </Badge>
-                        )}
+
                       </div>
                     </div>
 
                     {/* Balance */}
                     <div className="text-right">
-                      {account.balance_amount !== null ? (
+                      {account.balance !== null ? (
                         <p className="text-lg font-bold text-[var(--text-primary)]">
-                          {formatCurrency(account.balance_amount)}
+                          {formatCurrency(account.balance)}
                         </p>
                       ) : (
                         <p className="text-sm text-[var(--text-muted)]">Saldo utilgjengelig</p>
-                      )}
-                      {account.last_refreshed_at && (
-                        <p className="text-xs text-[var(--text-muted)]">
-                          Oppdatert {formatDate(account.last_refreshed_at)}
-                        </p>
                       )}
                     </div>
                   </div>
@@ -344,7 +339,7 @@ export default function BankPage() {
                             setRemovingAccount(account.id);
                             try {
                               const res = await fetch(
-                                `/api/bank/tink/disconnect?account_id=${account.id}`,
+                                `/api/bank/disconnect`,
                                 { method: "DELETE" }
                               );
                               if (!res.ok) throw new Error("feil");
@@ -413,14 +408,10 @@ export default function BankPage() {
                                     </p>
                                     {txn.category && (
                                       <Badge variant="primary" className="text-xs">
-                                        {txn.category}
+                                        {txn.category.name}
                                       </Badge>
                                     )}
-                                    {txn.status && txn.status !== "BOOKED" && (
-                                      <Badge variant="warning" className="text-xs">
-                                        {txn.status}
-                                      </Badge>
-                                    )}
+
                                   </div>
                                 </div>
                               </div>

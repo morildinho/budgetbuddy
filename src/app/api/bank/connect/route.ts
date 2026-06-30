@@ -1,13 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
 const SB1_AUTH_URL = "https://api-auth.sparebank1.no/oauth/authorize";
 const SB1_CLIENT_ID = process.env.SB1_CLIENT_ID;
-const SB1_REDIRECT_URI = process.env.SB1_REDIRECT_URI || "http://localhost:3000/api/bank/callback";
+const CONFIGURED_SB1_REDIRECT_URI = process.env.SB1_REDIRECT_URI;
 const SB1_FIN_INST = process.env.SB1_FIN_INST; // Optional: financial institution code
 
-export async function GET() {
+function getSb1RedirectUri(request: NextRequest) {
+  if (CONFIGURED_SB1_REDIRECT_URI) return CONFIGURED_SB1_REDIRECT_URI;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return `${appUrl.replace(/\/$/, "")}/api/bank/callback`;
+
+  return `${request.nextUrl.origin}/api/bank/callback`;
+}
+
+export async function GET(request: NextRequest) {
   try {
     if (!SB1_CLIENT_ID) {
       return NextResponse.json(
@@ -44,10 +53,12 @@ export async function GET() {
     // Generate state parameter to prevent CSRF
     const state = uuidv4();
 
+    const redirectUri = getSb1RedirectUri(request);
+
     // Build authorization URL
     const params = new URLSearchParams({
       client_id: SB1_CLIENT_ID,
-      redirect_uri: SB1_REDIRECT_URI,
+      redirect_uri: redirectUri,
       response_type: "code",
       state,
     });

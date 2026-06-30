@@ -4,7 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 const SB1_TOKEN_URL = "https://api-auth.sparebank1.no/oauth/token";
 const SB1_CLIENT_ID = process.env.SB1_CLIENT_ID;
 const SB1_CLIENT_SECRET = process.env.SB1_CLIENT_SECRET;
-const SB1_REDIRECT_URI = process.env.SB1_REDIRECT_URI || "http://localhost:3000/api/bank/callback";
+const CONFIGURED_SB1_REDIRECT_URI = process.env.SB1_REDIRECT_URI;
+
+function getSb1RedirectUri(request: NextRequest) {
+  if (CONFIGURED_SB1_REDIRECT_URI) return CONFIGURED_SB1_REDIRECT_URI;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return `${appUrl.replace(/\/$/, "")}/api/bank/callback`;
+
+  return `${request.nextUrl.origin}/api/bank/callback`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,20 +24,20 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("Bank OAuth error:", error);
       return NextResponse.redirect(
-        `${origin}/transactions?error=bank_auth_denied`
+        `${origin}/bank?error=bank_auth_denied`
       );
     }
 
     if (!code) {
       return NextResponse.redirect(
-        `${origin}/transactions?error=no_auth_code`
+        `${origin}/bank?error=no_auth_code`
       );
     }
 
     if (!SB1_CLIENT_ID || !SB1_CLIENT_SECRET) {
       console.error("SpareBank 1 credentials not configured");
       return NextResponse.redirect(
-        `${origin}/transactions?error=config_error`
+        `${origin}/bank?error=config_error`
       );
     }
 
@@ -41,7 +50,7 @@ export async function GET(request: NextRequest) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: SB1_REDIRECT_URI,
+        redirect_uri: getSb1RedirectUri(request),
         client_id: SB1_CLIENT_ID,
         client_secret: SB1_CLIENT_SECRET,
       }),
@@ -51,7 +60,7 @@ export async function GET(request: NextRequest) {
       const errorData = await tokenResponse.text();
       console.error("Token exchange failed:", errorData);
       return NextResponse.redirect(
-        `${origin}/transactions?error=token_exchange_failed`
+        `${origin}/bank?error=token_exchange_failed`
       );
     }
 
@@ -90,16 +99,16 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       console.error("Failed to store bank connection:", upsertError);
       return NextResponse.redirect(
-        `${origin}/transactions?error=storage_failed`
+        `${origin}/bank?error=storage_failed`
       );
     }
 
-    return NextResponse.redirect(`${origin}/transactions?connected=true`);
+    return NextResponse.redirect(`${origin}/bank?connected=true`);
   } catch (error) {
     console.error("Bank callback error:", error);
     const { origin } = new URL(request.url);
     return NextResponse.redirect(
-      `${origin}/transactions?error=callback_failed`
+      `${origin}/bank?error=callback_failed`
     );
   }
 }

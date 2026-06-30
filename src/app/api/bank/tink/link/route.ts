@@ -6,6 +6,7 @@ import {
   TINK_LOCALE,
   TINK_MARKET,
   createLinkAuthorizationCode,
+  createTinkUser,
   getOrCreateTinkConnection,
 } from "../_utils/tink";
 
@@ -55,7 +56,40 @@ export async function GET(request: NextRequest) {
     }
 
     const connection = await getOrCreateTinkConnection(supabase, user.id);
-    const authorizationCode = await createLinkAuthorizationCode(connection.tink_user_id!);
+    let authorizationCode: string;
+    try {
+      authorizationCode = await createLinkAuthorizationCode(connection.tink_user_id!);
+    } catch (linkError) {
+      const message = linkError instanceof Error ? linkError.message : String(linkError);
+      const staleTinkUser =
+        message.includes("oauth.user_id_does_not_exist") ||
+        message.includes("User ID does not exist");
+
+      if (!staleTinkUser) throw linkError;
+
+      console.warn("Stored Tink user ID no longer exists. Creating a replacement Tink user.");
+      const replacementTinkUserId = await createTinkUser();
+      const { data: updatedConnection, error: updateError } = await supabase
+        .from("bank_connections")
+        .update({
+          tink_user_id: replacementTinkUserId,
+          tink_credentials_id: null,
+          access_token: null,
+          refresh_token: null,
+          token_expires_at: null,
+          status: "pending",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", connection.id)
+        .select("*")
+        .single();
+
+      if (updateError || !updatedConnection) {
+        throw new Error(`Failed to replace stale Tink user ID: ${updateError?.message || "unknown error"}`);
+      }
+
+      authorizationCode = await createLinkAuthorizationCode(replacementTinkUserId);
+    }
 
     const state = randomBytes(32).toString("hex");
     (await cookies()).set("tink_oauth_state", state, {

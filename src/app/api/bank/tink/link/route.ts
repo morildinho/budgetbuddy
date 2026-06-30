@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
 import {
@@ -10,9 +10,18 @@ import {
 } from "../_utils/tink";
 
 const TINK_CLIENT_ID = process.env.TINK_CLIENT_ID;
-const TINK_REDIRECT_URI = process.env.TINK_REDIRECT_URI;
+const CONFIGURED_TINK_REDIRECT_URI = process.env.TINK_REDIRECT_URI;
 
-export async function GET() {
+function getTinkRedirectUri(request: NextRequest) {
+  if (CONFIGURED_TINK_REDIRECT_URI) return CONFIGURED_TINK_REDIRECT_URI;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (appUrl) return `${appUrl.replace(/\/$/, "")}/api/bank/tink/callback`;
+
+  return `${request.nextUrl.origin}/api/bank/tink/callback`;
+}
+
+export async function GET(request: NextRequest) {
   try {
     if (!TINK_CLIENT_ID) {
       return NextResponse.json(
@@ -21,9 +30,6 @@ export async function GET() {
       );
     }
 
-    if (!TINK_REDIRECT_URI) {
-      throw new Error("TINK_REDIRECT_URI is not configured");
-    }
 
     const supabase = await createClient();
     const {
@@ -59,9 +65,10 @@ export async function GET() {
       secure: process.env.NODE_ENV === "production",
     });
 
+    const redirectUri = getTinkRedirectUri(request);
     const params = new URLSearchParams({
       client_id: TINK_CLIENT_ID,
-      redirect_uri: TINK_REDIRECT_URI,
+      redirect_uri: redirectUri,
       authorization_code: authorizationCode,
       market: TINK_MARKET,
       locale: TINK_LOCALE,
@@ -73,8 +80,9 @@ export async function GET() {
     return NextResponse.json({ authUrl });
   } catch (error) {
     console.error("Tink link error:", error);
+    const message = error instanceof Error ? error.message : "Kunne ikke generere Tink-lenke";
     return NextResponse.json(
-      { error: "Kunne ikke generere Tink-lenke" },
+      { error: message },
       { status: 500 }
     );
   }

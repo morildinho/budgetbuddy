@@ -113,14 +113,18 @@ export default function BankPage() {
 
   const connectBank = async () => {
     try {
+      setStatusMsg(null);
       const res = await fetch("/api/bank/tink/link");
-      if (!res.ok) throw new Error("feil");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Kunne ikke starte bankkobling.");
       if (data.authUrl) {
         window.location.href = data.authUrl;
+        return;
       }
-    } catch {
-      setStatusMsg({ text: "Kunne ikke starte bankkobling.", ok: false });
+      throw new Error("Tink returnerte ingen banklenke.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Kunne ikke starte bankkobling.";
+      setStatusMsg({ text: message, ok: false });
     }
   };
 

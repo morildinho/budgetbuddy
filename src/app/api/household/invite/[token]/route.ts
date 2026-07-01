@@ -122,6 +122,17 @@ export async function POST(
 
     if (updateError) throw updateError;
 
+    const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: {
+        ...user.user_metadata,
+        pending_invite_token: null,
+      },
+    });
+
+    if (metadataError) {
+      console.warn("Failed to clear pending invite metadata:", metadataError.message);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error accepting invite:", error);

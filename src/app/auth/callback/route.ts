@@ -11,7 +11,17 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const redirectUrl = new URL(next, origin);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const pendingInviteToken =
+        typeof user?.user_metadata?.pending_invite_token === "string"
+          ? user.user_metadata.pending_invite_token
+          : null;
+      const targetNext = next === "/" && pendingInviteToken
+        ? `/invite/${pendingInviteToken}/accept`
+        : next;
+      const redirectUrl = new URL(targetNext, origin);
       return NextResponse.redirect(redirectUrl);
     }
   }

@@ -82,6 +82,7 @@ export default function SignUpPage() {
         emailRedirectTo,
         data: {
           full_name: form.fullName,
+          pending_invite_token: inviteToken,
         },
       },
     });

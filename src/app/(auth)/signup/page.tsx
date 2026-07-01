@@ -72,10 +72,14 @@ export default function SignUpPage() {
 
     const supabase = createClient();
 
+    const safeReturnTo = returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeReturnTo)}`;
+
     const { error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
+        emailRedirectTo,
         data: {
           full_name: form.fullName,
         },

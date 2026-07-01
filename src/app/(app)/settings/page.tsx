@@ -44,7 +44,7 @@ type ExportReceiptRow = {
 interface BankAccountOption {
   id: string;
   name: string;
-  iban: string | null;
+  accountNumber: string | null;
 }
 
 function InviteModal({
@@ -72,7 +72,7 @@ function InviteModal({
     const loadAccounts = async () => {
       setLoadingAccounts(true);
       try {
-        const res = await fetch("/api/bank/tink/accounts");
+        const res = await fetch("/api/bank/accounts");
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setAccounts(data.accounts || []);
@@ -193,7 +193,7 @@ function InviteModal({
                       className="flex w-full items-center justify-between rounded border border-[var(--border-primary)] px-3 py-2 text-left text-xs hover:bg-[var(--bg-card)]"
                     >
                       <span className="text-[var(--text-primary)]">
-                        {account.name}{account.iban ? ` (...${account.iban.slice(-4)})` : ""}
+                        {account.name}{account.accountNumber ? ` (...${account.accountNumber.slice(-4)})` : ""}
                       </span>
                       <span className={selectedAccountIds.includes(account.id) ? "text-[var(--accent-success)]" : "text-[var(--text-muted)]"}>
                         {selectedAccountIds.includes(account.id) ? "Valgt" : "Alle hvis ingen valgt"}

@@ -12,6 +12,14 @@ export async function GET(
 ) {
   try {
     const { token } = await params;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Invite lookup is not configured: missing Supabase admin environment variables");
+      return NextResponse.json(
+        { error: "Invite lookup is not configured" },
+        { status: 500 }
+      );
+    }
+
     const supabaseAdmin = createAdminClient();
 
     // Public invite lookup is intentionally done server-side with the service
@@ -62,6 +70,14 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Invite accept is not configured: missing Supabase admin environment variables");
+      return NextResponse.json(
+        { error: "Invite accept is not configured" },
+        { status: 500 }
+      );
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

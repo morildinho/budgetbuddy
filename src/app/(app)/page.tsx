@@ -218,10 +218,29 @@ export default function DashboardPage() {
     [effectiveCanView, isOwner]
   );
 
-  const visibleWidgets = useMemo(
-    () => availableWidgets.filter((widget) => enabledWidgets.includes(widget.id)),
-    [availableWidgets, enabledWidgets]
-  );
+  const visibleWidgets = useMemo(() => {
+    const availableById = new Map(availableWidgets.map((widget) => [widget.id, widget]));
+    const ordered = enabledWidgets
+      .map((id) => availableById.get(id))
+      .filter((widget): widget is WidgetDefinition => Boolean(widget));
+
+    // Keep the top row predictable: cashflow left, account balances right.
+    // The rest still follows the user's chosen order.
+    const topRow: WidgetId[] = ["cashflow", "accountBalances"];
+    return [
+      ...topRow.map((id) => ordered.find((widget) => widget.id === id)).filter((widget): widget is WidgetDefinition => Boolean(widget)),
+      ...ordered.filter((widget) => !topRow.includes(widget.id)),
+    ];
+  }, [availableWidgets, enabledWidgets]);
+
+  const customizerWidgets = useMemo(() => {
+    const availableById = new Map(availableWidgets.map((widget) => [widget.id, widget]));
+    const enabled = enabledWidgets
+      .map((id) => availableById.get(id))
+      .filter((widget): widget is WidgetDefinition => Boolean(widget));
+    const disabled = availableWidgets.filter((widget) => !enabledWidgets.includes(widget.id));
+    return [...enabled, ...disabled];
+  }, [availableWidgets, enabledWidgets]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(enabledWidgets));
@@ -472,7 +491,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardBody>
             <div className="grid gap-3 lg:grid-cols-2">
-              {availableWidgets.map((widget) => {
+              {customizerWidgets.map((widget) => {
                 const enabled = enabledWidgets.includes(widget.id);
                 return (
                   <div
@@ -497,7 +516,7 @@ export default function DashboardPage() {
                         <span className="block text-xs text-[var(--text-muted)]">{widget.description}</span>
                       </span>
                     </button>
-                    {enabled && (
+                    {enabled && !["cashflow", "accountBalances"].includes(widget.id) && (
                       <div className="flex gap-1">
                         <button
                           onClick={() => moveWidget(widget.id, "up")}

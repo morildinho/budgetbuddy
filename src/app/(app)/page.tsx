@@ -551,18 +551,18 @@ export default function DashboardPage() {
           {visibleWidgets.map((widget) => {
             if (widget.id === "cashflow") {
               return (
-                <Card key={widget.id} className="xl:col-span-2">
+                <Card key={widget.id} className="flex h-fit flex-col xl:col-span-2 xl:h-[22rem]">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Wallet className="h-5 w-5 text-[var(--accent-primary)]" />
                       <h2 className="font-semibold text-[var(--text-primary)]">Cashflow denne måneden</h2>
                     </div>
                   </CardHeader>
-                  <CardBody>
+                  <CardBody className="flex flex-1 items-center">
                     {transactionsLoading ? (
                       <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
                     ) : (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
                         <StatCard
                           title="Inntekt"
                           value={formatCurrency(monthIncome)}
@@ -646,7 +646,7 @@ export default function DashboardPage() {
 
             if (widget.id === "accountBalances") {
               return (
-                <Card key={widget.id} className="flex max-h-[34rem] flex-col overflow-hidden">
+                <Card key={widget.id} className="flex h-fit flex-col overflow-hidden xl:h-[22rem]">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Landmark className="h-5 w-5 text-[var(--accent-primary)]" />

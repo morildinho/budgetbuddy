@@ -63,6 +63,7 @@ interface CategorySummary {
 }
 
 const STORAGE_KEY = "budgetbuddy.overview.widgets.v1";
+const ACCOUNT_ORDER_STORAGE_KEY = "budgetbuddy.overview.accountOrder.v1";
 
 const WIDGETS: WidgetDefinition[] = [
   {
@@ -199,6 +200,17 @@ export default function DashboardPage() {
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [topCategories, setTopCategories] = useState<CategorySummary[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [accountOrder, setAccountOrder] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = window.localStorage.getItem(ACCOUNT_ORDER_STORAGE_KEY);
+    if (!stored) return [];
+    try {
+      const parsed = JSON.parse(stored) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+    } catch {
+      return [];
+    }
+  });
 
   const effectiveCanView = permissionsLoading ? NO_ACCESS : canView;
   const availableWidgets = useMemo(
@@ -214,6 +226,25 @@ export default function DashboardPage() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(enabledWidgets));
   }, [enabledWidgets]);
+
+  useEffect(() => {
+    if (accountOrder.length > 0) {
+      window.localStorage.setItem(ACCOUNT_ORDER_STORAGE_KEY, JSON.stringify(accountOrder));
+    }
+  }, [accountOrder]);
+
+  useEffect(() => {
+    if (accounts.length === 0) return;
+    window.setTimeout(() => {
+      setAccountOrder((prev) => {
+        const accountIds = accounts.map((account) => account.id);
+        const orderedExisting = prev.filter((id) => accountIds.includes(id));
+        const newIds = accountIds.filter((id) => !orderedExisting.includes(id));
+        const next = [...orderedExisting, ...newIds];
+        return next.join("|") === prev.join("|") ? prev : next;
+      });
+    }, 0);
+  }, [accounts]);
 
   useEffect(() => {
     if (!isOwner && !effectiveCanView.budget) {
@@ -357,6 +388,17 @@ export default function DashboardPage() {
     .reduce((sum, txn) => sum + Math.abs(Number(txn.amount)), 0);
   const monthNet = monthIncome - monthExpenses;
   const totalBalance = accounts.reduce((sum, account) => sum + (account.balance ?? 0), 0);
+  const orderedAccounts = useMemo(() => {
+    if (accounts.length === 0) return [];
+    const order = accountOrder.length > 0 ? accountOrder : accounts.map((account) => account.id);
+    return [...accounts].sort((a, b) => {
+      const aIndex = order.indexOf(a.id);
+      const bIndex = order.indexOf(b.id);
+      const safeA = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+      const safeB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+      return safeA - safeB;
+    });
+  }, [accounts, accountOrder]);
   const portfolioValue = assets.reduce((sum, asset) => sum + (asset.currentValueNok ?? 0), 0);
   const portfolioGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLoss ?? 0), 0);
   const portfolioByType = assets.reduce<Record<string, number>>((acc, asset) => {
@@ -379,6 +421,19 @@ export default function DashboardPage() {
       const target = direction === "up" ? index - 1 : index + 1;
       if (target < 0 || target >= prev.length) return prev;
       const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const moveAccount = (accountId: string, direction: "up" | "down") => {
+    setAccountOrder((prev) => {
+      const currentOrder = prev.length > 0 ? prev : accounts.map((account) => account.id);
+      const index = currentOrder.indexOf(accountId);
+      if (index === -1) return currentOrder;
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= currentOrder.length) return currentOrder;
+      const next = [...currentOrder];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
@@ -473,7 +528,7 @@ export default function DashboardPage() {
           description="Klikk på Tilpass oversikt og velg minst én widget."
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {visibleWidgets.map((widget) => {
             if (widget.id === "cashflow") {
               return (
@@ -519,7 +574,7 @@ export default function DashboardPage() {
 
             if (widget.id === "budgetForecast") {
               return (
-                <Card key={widget.id} className="xl:col-span-2">
+                <Card key={widget.id} className="h-fit xl:col-span-2">
                   <CardHeader>
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -537,7 +592,7 @@ export default function DashboardPage() {
                     ) : budgetForecast.length === 0 ? (
                       <p className="text-sm text-[var(--text-muted)]">Ingen budsjettdata ennå.</p>
                     ) : (
-                      <div className="overflow-x-auto">
+                      <div className="max-h-[26rem] overflow-auto pr-1">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-[var(--border-primary)] text-left text-xs text-[var(--text-muted)]">
@@ -572,32 +627,54 @@ export default function DashboardPage() {
 
             if (widget.id === "accountBalances") {
               return (
-                <Card key={widget.id}>
+                <Card key={widget.id} className="flex max-h-[34rem] flex-col overflow-hidden">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Landmark className="h-5 w-5 text-[var(--accent-primary)]" />
                       <h2 className="font-semibold text-[var(--text-primary)]">Kontobeholdning</h2>
                     </div>
                   </CardHeader>
-                  <CardBody>
+                  <CardBody className="min-h-0 flex-1 overflow-hidden">
                     {accountsLoading ? (
                       <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
                     ) : accounts.length === 0 ? (
                       <p className="text-sm text-[var(--text-muted)]">Ingen kontoer hentet ennå.</p>
                     ) : (
-                      <div>
-                        <div className="mb-4 rounded-xl bg-[var(--accent-primary)]/10 p-4">
+                      <div className="flex h-full min-h-0 flex-col">
+                        <div className="mb-4 shrink-0 rounded-xl bg-[var(--accent-primary)]/10 p-4">
                           <p className="text-xs text-[var(--text-muted)]">Total saldo</p>
                           <p className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(totalBalance)}</p>
                         </div>
-                        <div className="space-y-2">
-                          {accounts.map((account) => (
-                            <div key={account.id} className="flex items-center justify-between rounded-lg border border-[var(--border-primary)] px-3 py-2">
-                              <div>
-                                <p className="text-sm font-medium text-[var(--text-primary)]">{account.name}</p>
+                        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                          {orderedAccounts.map((account, index) => (
+                            <div key={account.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-primary)] px-3 py-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{account.name}</p>
                                 {account.accountNumber && <p className="text-xs text-[var(--text-muted)]">•••• {account.accountNumber.slice(-4)}</p>}
                               </div>
-                              <p className="text-sm font-semibold text-[var(--text-primary)]">{account.balance == null ? "—" : formatCurrency(account.balance)}</p>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <p className="text-sm font-semibold text-[var(--text-primary)]">{account.balance == null ? "—" : formatCurrency(account.balance)}</p>
+                                {customizing && (
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      onClick={() => moveAccount(account.id, "up")}
+                                      disabled={index === 0}
+                                      className="rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+                                      aria-label={`Flytt ${account.name} opp`}
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      onClick={() => moveAccount(account.id, "down")}
+                                      disabled={index === orderedAccounts.length - 1}
+                                      className="rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] disabled:cursor-not-allowed disabled:opacity-40"
+                                      aria-label={`Flytt ${account.name} ned`}
+                                    >
+                                      ↓
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>

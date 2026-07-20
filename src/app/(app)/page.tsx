@@ -13,6 +13,7 @@ import {
   Landmark,
   LayoutGrid,
   Loader2,
+  MessageSquare,
   PieChart,
   Receipt,
   Settings2,
@@ -420,6 +421,10 @@ export default function DashboardPage() {
   }, [accounts, accountOrder]);
   const portfolioValue = assets.reduce((sum, asset) => sum + (asset.currentValueNok ?? 0), 0);
   const portfolioGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLoss ?? 0), 0);
+  const portfolioNotes = assets
+    .filter((asset) => asset.notes?.trim())
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 3);
   const portfolioByType = assets.reduce<Record<string, number>>((acc, asset) => {
     acc[asset.asset_type] = (acc[asset.asset_type] || 0) + (asset.currentValueNok ?? 0);
     return acc;
@@ -735,7 +740,7 @@ export default function DashboardPage() {
                         <div className="flex gap-2">
                           {Object.entries(portfolioByType).map(([type, value]) => (
                             <Badge key={type} variant="primary">
-                              {type === "crypto" ? "Krypto" : "Aksjer"}: {formatCurrency(value)}
+                              {type === "crypto" ? "Krypto" : type === "cash" ? "Kontanter" : "Aksjer"}: {formatCurrency(value)}
                             </Badge>
                           ))}
                         </div>
@@ -747,6 +752,22 @@ export default function DashboardPage() {
                             </div>
                           ))}
                         </div>
+                        {portfolioNotes.length > 0 && (
+                          <div className="border-t border-[var(--border-primary)] pt-3">
+                            <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                              <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
+                              Delt informasjon
+                            </div>
+                            <div className="space-y-2">
+                              {portfolioNotes.map((asset) => (
+                                <div key={asset.id} className="rounded-lg bg-[var(--bg-secondary)] p-2.5">
+                                  <p className="text-xs font-medium text-[var(--text-primary)]">{asset.name}</p>
+                                  <p className="mt-0.5 line-clamp-3 text-xs text-[var(--text-muted)]">{asset.notes}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardBody>

@@ -7,7 +7,7 @@ export interface PortfolioAsset {
   user_id: string;
   symbol: string;
   name: string;
-  asset_type: "stock" | "crypto";
+  asset_type: "stock" | "crypto" | "cash";
   quantity: number;
   purchase_price: number | null;
   currency: string;
@@ -36,11 +36,17 @@ export interface AssetWithMetrics extends PortfolioAsset {
 interface NewAsset {
   symbol: string;
   name: string;
-  asset_type: "stock" | "crypto";
+  asset_type: "stock" | "crypto" | "cash";
   quantity: number;
   purchase_price?: number | null;
   currency?: string;
   notes?: string;
+}
+
+interface AssetUpdates {
+  notes?: string | null;
+  quantity?: number;
+  name?: string;
 }
 
 export function usePortfolio() {
@@ -131,6 +137,23 @@ export function usePortfolio() {
     }
   }, []);
 
+  const updateAsset = useCallback(async (id: string, updates: AssetUpdates): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/portfolio/assets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...updates }),
+      });
+      if (!res.ok) throw new Error("Failed to update asset");
+      const data = await res.json();
+      setAssets((prev) => prev.map((asset) => (asset.id === id ? data.asset : asset)));
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+      return false;
+    }
+  }, []);
+
   const deleteAsset = useCallback(async (id: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/portfolio/assets?id=${id}`, {
@@ -147,16 +170,17 @@ export function usePortfolio() {
 
   // Enrich assets with price metrics
   const assetsWithMetrics: AssetWithMetrics[] = assets.map((asset) => {
+    const isCash = asset.asset_type === "cash";
     const priceInfo = prices[asset.symbol.toUpperCase()];
-    const currentPrice = priceInfo?.price ?? null;
-    const currentPriceNok = priceInfo?.price_nok ?? null;
+    const currentPrice = isCash ? 1 : priceInfo?.price ?? null;
+    const currentPriceNok = isCash ? 1 : priceInfo?.price_nok ?? null;
 
     const currentValue = currentPrice != null ? asset.quantity * currentPrice : null;
     const currentValueNok = currentPriceNok != null ? asset.quantity * currentPriceNok : null;
 
     let gainLoss: number | null = null;
     let gainLossPercent: number | null = null;
-    if (currentPrice != null && asset.purchase_price != null) {
+    if (!isCash && currentPrice != null && asset.purchase_price != null) {
       gainLoss = (currentPrice - asset.purchase_price) * asset.quantity;
       gainLossPercent = ((currentPrice - asset.purchase_price) / asset.purchase_price) * 100;
     }
@@ -169,7 +193,7 @@ export function usePortfolio() {
       currentValueNok,
       gainLoss,
       gainLossPercent,
-      change24h: priceInfo?.change_24h ?? null,
+      change24h: isCash ? 0 : priceInfo?.change_24h ?? null,
     };
   });
 
@@ -180,6 +204,7 @@ export function usePortfolio() {
     error,
     lastUpdated,
     addAsset,
+    updateAsset,
     deleteAsset,
     refresh,
   };

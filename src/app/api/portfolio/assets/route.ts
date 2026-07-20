@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    if (!["stock", "crypto", "cash"].includes(asset_type)) {
+      return NextResponse.json({ error: "Invalid asset type" }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from("portfolio_assets")
       .insert({
@@ -61,6 +65,43 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating portfolio asset:", error);
     return NextResponse.json({ error: "Failed to create asset" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, notes, quantity, name } = body;
+    if (!id) {
+      return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    }
+
+    const updates: Record<string, string | number | null> = {};
+    if (notes !== undefined) updates.notes = typeof notes === "string" && notes.trim() ? notes.trim() : null;
+    if (quantity !== undefined) updates.quantity = Number(quantity);
+    if (name !== undefined && typeof name === "string" && name.trim()) updates.name = name.trim();
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from("portfolio_assets")
+      .update(updates)
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ asset: data });
+  } catch (error) {
+    console.error("Error updating portfolio asset:", error);
+    return NextResponse.json({ error: "Failed to update asset" }, { status: 500 });
   }
 }
 

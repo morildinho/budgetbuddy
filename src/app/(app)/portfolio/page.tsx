@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Plus, RefreshCw, Trash2, Bitcoin, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, RefreshCw, Trash2, Bitcoin, BarChart2, Banknote, Pencil, MessageSquare } from "lucide-react";
 import { Card, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { usePortfolio, AssetWithMetrics } from "@/hooks/usePortfolio";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 
-type AssetType = "crypto" | "stock";
-type TabType = "crypto" | "stock";
+type AssetType = "crypto" | "stock" | "cash";
+type TabType = "crypto" | "stock" | "cash";
 
 function formatCurrency(value: number | null, currency = "USD"): string {
   if (value == null) return "—";
@@ -59,11 +60,15 @@ function SkeletonRow() {
 function AssetTable({
   assets,
   onDelete,
+  onEdit,
   loading,
+  readOnly,
 }: {
   assets: AssetWithMetrics[];
   onDelete: (id: string) => void;
+  onEdit: (asset: AssetWithMetrics) => void;
   loading: boolean;
+  readOnly: boolean;
 }) {
   if (loading) {
     return (
@@ -127,6 +132,12 @@ function AssetTable({
                 <td className="px-4 py-3">
                   <div className="font-semibold text-[var(--text-primary)]">{asset.symbol}</div>
                   <div className="text-xs text-[var(--text-muted)]">{asset.name}</div>
+                  {asset.notes && (
+                    <div className="mt-1 flex max-w-xs items-start gap-1 text-xs text-[var(--accent-primary)]">
+                      <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span className="line-clamp-2">{asset.notes}</span>
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">
                   {formatQuantity(Number(asset.quantity))}
@@ -181,13 +192,24 @@ function AssetTable({
                   <ChangeBadge change={asset.change24h} />
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => onDelete(asset.id)}
-                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)]"
-                    title="Slett"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {!readOnly && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEdit(asset)}
+                        className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-primary)]/10 hover:text-[var(--accent-primary)]"
+                        title="Rediger notat"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(asset.id)}
+                        className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)]"
+                        title="Slett"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             );
@@ -199,10 +221,14 @@ function AssetTable({
 }
 
 export default function PortfolioPage() {
-  const { assets, loading, lastUpdated, addAsset, deleteAsset, refresh } = usePortfolio();
+  const { isOwner } = usePermissions();
+  const { assets, loading, lastUpdated, addAsset, updateAsset, deleteAsset, refresh } = usePortfolio();
   const [activeTab, setActiveTab] = useState<TabType>("crypto");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<AssetWithMetrics | null>(null);
+  const [editNotes, setEditNotes] = useState("");
   const [adding, setAdding] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const [form, setForm] = useState({
     type: "crypto" as AssetType,
@@ -211,11 +237,13 @@ export default function PortfolioPage() {
     quantity: "",
     purchase_price: "",
     currency: "USD",
+    notes: "",
   });
 
   const cryptoAssets = assets.filter((a) => a.asset_type === "crypto");
   const stockAssets = assets.filter((a) => a.asset_type === "stock");
-  const displayedAssets = activeTab === "crypto" ? cryptoAssets : stockAssets;
+  const cashAssets = assets.filter((a) => a.asset_type === "cash");
+  const displayedAssets = activeTab === "crypto" ? cryptoAssets : activeTab === "stock" ? stockAssets : cashAssets;
 
   // Summary stats
   const totalValue = assets.reduce((sum, a) => {
@@ -226,21 +254,39 @@ export default function PortfolioPage() {
   const hasGainLossData = assets.some((a) => a.gainLoss != null);
 
   const handleAdd = async () => {
-    if (!form.symbol || !form.name || !form.quantity) return;
+    const isCash = form.type === "cash";
+    const symbol = isCash ? "NOK" : form.symbol.toUpperCase();
+    const name = isCash ? (form.name.trim() || "Kontanter") : form.name.trim();
+    if (!symbol || !name || !form.quantity) return;
     setAdding(true);
     const success = await addAsset({
-      symbol: form.symbol.toUpperCase(),
-      name: form.name,
+      symbol,
+      name,
       asset_type: form.type,
       quantity: parseFloat(form.quantity),
-      purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
-      currency: form.currency,
+      purchase_price: isCash ? null : form.purchase_price ? parseFloat(form.purchase_price) : null,
+      currency: isCash ? "NOK" : form.currency,
+      notes: form.notes.trim() || undefined,
     });
     setAdding(false);
     if (success) {
       setShowAddModal(false);
-      setForm({ type: "crypto", symbol: "", name: "", quantity: "", purchase_price: "", currency: "USD" });
+      setActiveTab(form.type);
+      setForm({ type: "crypto", symbol: "", name: "", quantity: "", purchase_price: "", currency: "USD", notes: "" });
     }
+  };
+
+  const openEditNotes = (asset: AssetWithMetrics) => {
+    setEditingAsset(asset);
+    setEditNotes(asset.notes || "");
+  };
+
+  const saveNotes = async () => {
+    if (!editingAsset) return;
+    setSavingNotes(true);
+    const success = await updateAsset(editingAsset.id, { notes: editNotes.trim() || null });
+    setSavingNotes(false);
+    if (success) setEditingAsset(null);
   };
 
   return (
@@ -260,10 +306,12 @@ export default function PortfolioPage() {
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             Oppdater
           </Button>
-          <Button size="sm" onClick={() => setShowAddModal(true)}>
-            <Plus className="h-4 w-4" />
-            Legg til
-          </Button>
+          {isOwner && (
+            <Button size="sm" onClick={() => setShowAddModal(true)}>
+              <Plus className="h-4 w-4" />
+              Legg til
+            </Button>
+          )}
         </div>
       </div>
 
@@ -294,7 +342,7 @@ export default function PortfolioPage() {
         <StatCard
           title="Antall eiendeler"
           value={loading ? "..." : String(assets.length)}
-          change={`${cryptoAssets.length} krypto · ${stockAssets.length} aksjer`}
+          change={`${cryptoAssets.length} krypto · ${stockAssets.length} aksjer · ${cashAssets.length} kontant`}
           icon={<BarChart2 className="h-5 w-5 text-[var(--accent-primary)]" />}
         />
       </div>
@@ -303,7 +351,7 @@ export default function PortfolioPage() {
       <Card>
         <div className="border-b border-[var(--border-primary)] px-4">
           <div className="flex gap-1">
-            {(["crypto", "stock"] as TabType[]).map((tab) => (
+            {(["crypto", "stock", "cash"] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -314,21 +362,27 @@ export default function PortfolioPage() {
                     : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                 )}
               >
-                {tab === "crypto" ? <Bitcoin className="h-4 w-4" /> : <BarChart2 className="h-4 w-4" />}
-                {tab === "crypto" ? "Krypto" : "Aksjer"}
+                {tab === "crypto" ? <Bitcoin className="h-4 w-4" /> : tab === "stock" ? <BarChart2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
+                {tab === "crypto" ? "Krypto" : tab === "stock" ? "Aksjer" : "Kontanter"}
                 <span className={cn(
                   "rounded-full px-1.5 py-0.5 text-xs",
                   activeTab === tab
                     ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]"
                     : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
                 )}>
-                  {tab === "crypto" ? cryptoAssets.length : stockAssets.length}
+                  {tab === "crypto" ? cryptoAssets.length : tab === "stock" ? stockAssets.length : cashAssets.length}
                 </span>
               </button>
             ))}
           </div>
         </div>
-        <AssetTable assets={displayedAssets} onDelete={deleteAsset} loading={loading} />
+        <AssetTable
+          assets={displayedAssets}
+          onDelete={deleteAsset}
+          onEdit={openEditNotes}
+          loading={loading}
+          readOnly={!isOwner}
+        />
       </Card>
 
       {/* Add Asset Modal */}
@@ -337,8 +391,8 @@ export default function PortfolioPage() {
           {/* Type selector */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["crypto", "stock"] as AssetType[]).map((type) => (
+            <div className="grid grid-cols-3 gap-2">
+              {(["crypto", "stock", "cash"] as AssetType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => setForm((f) => ({ ...f, type }))}
@@ -349,30 +403,39 @@ export default function PortfolioPage() {
                       : "border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-[var(--accent-primary)]/50"
                   )}
                 >
-                  {type === "crypto" ? <Bitcoin className="h-4 w-4" /> : <BarChart2 className="h-4 w-4" />}
-                  {type === "crypto" ? "Krypto" : "Aksje"}
+                  {type === "crypto" ? <Bitcoin className="h-4 w-4" /> : type === "stock" ? <BarChart2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
+                  {type === "crypto" ? "Krypto" : type === "stock" ? "Aksje" : "NOK"}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {form.type === "cash" ? (
             <Input
-              label="Symbol"
-              placeholder={form.type === "crypto" ? "BTC" : "AAPL"}
-              value={form.symbol}
-              onChange={(e) => setForm((f) => ({ ...f, symbol: e.target.value.toUpperCase() }))}
-            />
-            <Input
-              label="Navn"
-              placeholder={form.type === "crypto" ? "Bitcoin" : "Apple Inc."}
+              label="Navn (valgfritt)"
+              placeholder="F.eks. Bufferkonto eller kontanter"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Symbol"
+                placeholder={form.type === "crypto" ? "BTC" : "AAPL"}
+                value={form.symbol}
+                onChange={(e) => setForm((f) => ({ ...f, symbol: e.target.value.toUpperCase() }))}
+              />
+              <Input
+                label="Navn"
+                placeholder={form.type === "crypto" ? "Bitcoin" : "Apple Inc."}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+          )}
 
           <Input
-            label="Antall"
+            label={form.type === "cash" ? "Beløp i NOK" : "Antall"}
             type="number"
             placeholder="0.00"
             step="any"
@@ -381,28 +444,45 @@ export default function PortfolioPage() {
             onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Kjøpspris (valgfritt)"
-              type="number"
-              placeholder="0.00"
-              step="any"
-              min="0"
-              value={form.purchase_price}
-              onChange={(e) => setForm((f) => ({ ...f, purchase_price: e.target.value }))}
-            />
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Valuta</label>
-              <select
-                value={form.currency}
-                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
-              >
-                <option value="USD">USD</option>
-                <option value="NOK">NOK</option>
-                <option value="EUR">EUR</option>
-              </select>
+          {form.type !== "cash" && (
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Kjøpspris (valgfritt)"
+                type="number"
+                placeholder="0.00"
+                step="any"
+                min="0"
+                value={form.purchase_price}
+                onChange={(e) => setForm((f) => ({ ...f, purchase_price: e.target.value }))}
+              />
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Valuta</label>
+                <select
+                  value={form.currency}
+                  onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+                  className="w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+                >
+                  <option value="USD">USD</option>
+                  <option value="NOK">NOK</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
             </div>
+          )}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
+              Notat (valgfritt)
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder="F.eks. Kjøpte flere aksjer på grunn av god pris"
+              rows={3}
+              maxLength={1000}
+              className="w-full resize-y rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Notatet deles med husstandsmedlemmer som har porteføljetilgang.</p>
           </div>
 
           {form.type === "stock" && (
@@ -417,11 +497,38 @@ export default function PortfolioPage() {
             </Button>
             <Button
               onClick={handleAdd}
-              disabled={!form.symbol || !form.name || !form.quantity || adding}
+              disabled={(form.type !== "cash" && (!form.symbol || !form.name)) || !form.quantity || adding}
               isLoading={adding}
             >
               Lagre
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={editingAsset !== null}
+        onClose={() => setEditingAsset(null)}
+        title={`Notat – ${editingAsset?.name || "portefølje"}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Delt notat</label>
+            <textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="Skriv nødvendig informasjon til husstanden"
+              rows={5}
+              maxLength={1000}
+              className="w-full resize-y rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Dette vises i porteføljen og på Oversikt for brukere med porteføljetilgang.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditingAsset(null)}>Avbryt</Button>
+            <Button onClick={saveNotes} isLoading={savingNotes}>Lagre notat</Button>
           </div>
         </div>
       </Modal>

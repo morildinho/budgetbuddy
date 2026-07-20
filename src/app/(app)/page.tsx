@@ -201,6 +201,11 @@ export default function DashboardPage() {
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [topCategories, setTopCategories] = useState<CategorySummary[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [overviewNote, setOverviewNote] = useState("");
+  const [savedOverviewNote, setSavedOverviewNote] = useState("");
+  const [overviewNoteLoading, setOverviewNoteLoading] = useState(true);
+  const [overviewNoteSaving, setOverviewNoteSaving] = useState(false);
+  const [overviewNoteMessage, setOverviewNoteMessage] = useState<string | null>(null);
   const [accountOrder, setAccountOrder] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     const stored = window.localStorage.getItem(ACCOUNT_ORDER_STORAGE_KEY);
@@ -265,6 +270,33 @@ export default function DashboardPage() {
       });
     }, 0);
   }, [accounts]);
+
+  useEffect(() => {
+    if (permissionsLoading || (!isOwner && !canView.overview)) return;
+
+    let cancelled = false;
+    const fetchOverviewNote = async () => {
+      setOverviewNoteLoading(true);
+      try {
+        const response = await fetch("/api/overview-note");
+        if (!response.ok) throw new Error("Kunne ikke hente notatet");
+        const data = await response.json();
+        if (!cancelled) {
+          const note = typeof data.note === "string" ? data.note : "";
+          setOverviewNote(note);
+          setSavedOverviewNote(note);
+          setOverviewNoteMessage(null);
+        }
+      } catch {
+        if (!cancelled) setOverviewNoteMessage("Kunne ikke hente det delte notatet.");
+      } finally {
+        if (!cancelled) setOverviewNoteLoading(false);
+      }
+    };
+
+    fetchOverviewNote();
+    return () => { cancelled = true; };
+  }, [canView.overview, isOwner, permissionsLoading]);
 
   useEffect(() => {
     if (!isOwner && !effectiveCanView.budget) {
@@ -430,6 +462,28 @@ export default function DashboardPage() {
     return acc;
   }, {});
 
+  const saveOverviewNote = async () => {
+    setOverviewNoteSaving(true);
+    setOverviewNoteMessage(null);
+    try {
+      const response = await fetch("/api/overview-note", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: overviewNote }),
+      });
+      if (!response.ok) throw new Error("Kunne ikke lagre notatet");
+      const data = await response.json();
+      const saved = typeof data.note === "string" ? data.note : overviewNote.trim();
+      setOverviewNote(saved);
+      setSavedOverviewNote(saved);
+      setOverviewNoteMessage("Notatet er lagret og delt med husstanden.");
+    } catch {
+      setOverviewNoteMessage("Kunne ikke lagre notatet. Prøv igjen.");
+    } finally {
+      setOverviewNoteSaving(false);
+    }
+  };
+
   const pageLoading = permissionsLoading || receiptsLoading;
 
   const toggleWidget = (id: WidgetId) => {
@@ -541,6 +595,58 @@ export default function DashboardPage() {
                 );
               })}
             </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {(isOwner || effectiveCanView.overview) && (
+        <Card className="mb-4 border-[var(--accent-primary)]/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-[var(--accent-primary)]" />
+              <div>
+                <h2 className="font-semibold text-[var(--text-primary)]">Delt informasjon</h2>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Et felles notat på Oversikt, uavhengig av budsjett, portefølje og andre seksjoner.
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody>
+            {overviewNoteLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
+            ) : isOwner ? (
+              <div className="space-y-3">
+                <textarea
+                  value={overviewNote}
+                  onChange={(event) => {
+                    setOverviewNote(event.target.value);
+                    setOverviewNoteMessage(null);
+                  }}
+                  placeholder="F.eks. Denne måneden er det feriepenger, derfor ekstra inn denne måneden."
+                  rows={4}
+                  maxLength={4000}
+                  className="w-full resize-y rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs text-[var(--text-muted)]">
+                    {overviewNoteMessage || `${overviewNote.length}/4000 tegn · synlig for brukere med tilgang til Oversikt`}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={saveOverviewNote}
+                    disabled={overviewNote === savedOverviewNote || overviewNoteSaving}
+                    isLoading={overviewNoteSaving}
+                  >
+                    Lagre notat
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap rounded-xl bg-[var(--bg-secondary)] p-4 text-sm text-[var(--text-primary)]">
+                {overviewNote || "Ingen delt informasjon er lagt inn ennå."}
+              </div>
+            )}
           </CardBody>
         </Card>
       )}

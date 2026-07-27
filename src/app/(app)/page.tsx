@@ -14,9 +14,12 @@ import {
   LayoutGrid,
   Loader2,
   MessageSquare,
+  Pencil,
   PieChart,
+  Plus,
   Receipt,
   Settings2,
+  Trash2,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -61,6 +64,13 @@ interface CategorySummary {
   name: string;
   amount: number;
   color: string;
+}
+
+interface OverviewNote {
+  id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const STORAGE_KEY = "budgetbuddy.overview.widgets.v1";
@@ -201,8 +211,10 @@ export default function DashboardPage() {
   const [transactionsLoading, setTransactionsLoading] = useState(true);
   const [topCategories, setTopCategories] = useState<CategorySummary[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [overviewNote, setOverviewNote] = useState("");
-  const [savedOverviewNote, setSavedOverviewNote] = useState("");
+  const [overviewNotes, setOverviewNotes] = useState<OverviewNote[]>([]);
+  const [newOverviewNote, setNewOverviewNote] = useState("");
+  const [editingOverviewNoteId, setEditingOverviewNoteId] = useState<string | null>(null);
+  const [editingOverviewNoteContent, setEditingOverviewNoteContent] = useState("");
   const [overviewNoteLoading, setOverviewNoteLoading] = useState(true);
   const [overviewNoteSaving, setOverviewNoteSaving] = useState(false);
   const [overviewNoteMessage, setOverviewNoteMessage] = useState<string | null>(null);
@@ -282,9 +294,7 @@ export default function DashboardPage() {
         if (!response.ok) throw new Error("Kunne ikke hente notatet");
         const data = await response.json();
         if (!cancelled) {
-          const note = typeof data.note === "string" ? data.note : "";
-          setOverviewNote(note);
-          setSavedOverviewNote(note);
+          setOverviewNotes(Array.isArray(data.notes) ? data.notes : []);
           setOverviewNoteMessage(null);
         }
       } catch {
@@ -462,23 +472,65 @@ export default function DashboardPage() {
     return acc;
   }, {});
 
-  const saveOverviewNote = async () => {
+  const createOverviewNote = async () => {
+    if (!newOverviewNote.trim()) return;
     setOverviewNoteSaving(true);
     setOverviewNoteMessage(null);
     try {
       const response = await fetch("/api/overview-note", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: overviewNote }),
+        body: JSON.stringify({ content: newOverviewNote }),
       });
       if (!response.ok) throw new Error("Kunne ikke lagre notatet");
       const data = await response.json();
-      const saved = typeof data.note === "string" ? data.note : overviewNote.trim();
-      setOverviewNote(saved);
-      setSavedOverviewNote(saved);
-      setOverviewNoteMessage("Notatet er lagret og delt med husstanden.");
+      setOverviewNotes((prev) => [data.note as OverviewNote, ...prev]);
+      setNewOverviewNote("");
+      setOverviewNoteMessage("Notatet er lagt til.");
     } catch {
-      setOverviewNoteMessage("Kunne ikke lagre notatet. Prøv igjen.");
+      setOverviewNoteMessage("Kunne ikke legge til notatet. Prøv igjen.");
+    } finally {
+      setOverviewNoteSaving(false);
+    }
+  };
+
+  const updateOverviewNote = async () => {
+    if (!editingOverviewNoteId || !editingOverviewNoteContent.trim()) return;
+    setOverviewNoteSaving(true);
+    setOverviewNoteMessage(null);
+    try {
+      const response = await fetch("/api/overview-note", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingOverviewNoteId, content: editingOverviewNoteContent }),
+      });
+      if (!response.ok) throw new Error("Kunne ikke oppdatere notatet");
+      const data = await response.json();
+      setOverviewNotes((prev) => [
+        data.note as OverviewNote,
+        ...prev.filter((note) => note.id !== editingOverviewNoteId),
+      ]);
+      setEditingOverviewNoteId(null);
+      setEditingOverviewNoteContent("");
+      setOverviewNoteMessage("Notatet er oppdatert.");
+    } catch {
+      setOverviewNoteMessage("Kunne ikke oppdatere notatet. Prøv igjen.");
+    } finally {
+      setOverviewNoteSaving(false);
+    }
+  };
+
+  const deleteOverviewNote = async (id: string) => {
+    setOverviewNoteSaving(true);
+    setOverviewNoteMessage(null);
+    try {
+      const response = await fetch(`/api/overview-note?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Kunne ikke slette notatet");
+      setOverviewNotes((prev) => prev.filter((note) => note.id !== id));
+      if (editingOverviewNoteId === id) setEditingOverviewNoteId(null);
+      setOverviewNoteMessage("Notatet er slettet.");
+    } catch {
+      setOverviewNoteMessage("Kunne ikke slette notatet. Prøv igjen.");
     } finally {
       setOverviewNoteSaving(false);
     }
@@ -607,7 +659,7 @@ export default function DashboardPage() {
               <div>
                 <h2 className="font-semibold text-[var(--text-primary)]">Delt informasjon</h2>
                 <p className="text-xs text-[var(--text-muted)]">
-                  Et felles notat på Oversikt, uavhengig av budsjett, portefølje og andre seksjoner.
+                  Små felles notater på Oversikt som blir liggende til de redigeres eller slettes.
                 </p>
               </div>
             </div>
@@ -615,36 +667,110 @@ export default function DashboardPage() {
           <CardBody>
             {overviewNoteLoading ? (
               <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
-            ) : isOwner ? (
-              <div className="space-y-3">
-                <textarea
-                  value={overviewNote}
-                  onChange={(event) => {
-                    setOverviewNote(event.target.value);
-                    setOverviewNoteMessage(null);
-                  }}
-                  placeholder="F.eks. Denne måneden er det feriepenger, derfor ekstra inn denne måneden."
-                  rows={4}
-                  maxLength={4000}
-                  className="w-full resize-y rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
-                />
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {overviewNoteMessage || `${overviewNote.length}/4000 tegn · synlig for brukere med tilgang til Oversikt`}
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={saveOverviewNote}
-                    disabled={overviewNote === savedOverviewNote || overviewNoteSaving}
-                    isLoading={overviewNoteSaving}
-                  >
-                    Lagre notat
-                  </Button>
-                </div>
-              </div>
             ) : (
-              <div className="whitespace-pre-wrap rounded-xl bg-[var(--bg-secondary)] p-4 text-sm text-[var(--text-primary)]">
-                {overviewNote || "Ingen delt informasjon er lagt inn ennå."}
+              <div className="space-y-4">
+                {isOwner && (
+                  <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-3">
+                    <textarea
+                      value={newOverviewNote}
+                      onChange={(event) => {
+                        setNewOverviewNote(event.target.value);
+                        setOverviewNoteMessage(null);
+                      }}
+                      placeholder="Skriv et nytt notat, f.eks. Denne måneden er det feriepenger."
+                      rows={2}
+                      maxLength={4000}
+                      className="w-full resize-y bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <span className="text-xs text-[var(--text-muted)]">{newOverviewNote.length}/4000 tegn</span>
+                      <Button
+                        size="sm"
+                        onClick={createOverviewNote}
+                        disabled={!newOverviewNote.trim() || overviewNoteSaving}
+                        isLoading={overviewNoteSaving}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Legg til notat
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {overviewNoteMessage && <p className="text-xs text-[var(--text-muted)]">{overviewNoteMessage}</p>}
+
+                {overviewNotes.length === 0 ? (
+                  <p className="py-3 text-sm text-[var(--text-muted)]">Ingen delte notater er lagt inn ennå.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {overviewNotes.map((note) => (
+                      <div key={note.id} className="flex min-h-32 flex-col rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-4">
+                        {editingOverviewNoteId === note.id ? (
+                          <>
+                            <textarea
+                              value={editingOverviewNoteContent}
+                              onChange={(event) => setEditingOverviewNoteContent(event.target.value)}
+                              rows={4}
+                              maxLength={4000}
+                              className="min-h-24 w-full flex-1 resize-y bg-transparent text-sm text-[var(--text-primary)] focus:outline-none"
+                            />
+                            <div className="mt-3 flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingOverviewNoteId(null);
+                                  setEditingOverviewNoteContent("");
+                                }}
+                              >
+                                Avbryt
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={updateOverviewNote}
+                                disabled={!editingOverviewNoteContent.trim() || overviewNoteSaving}
+                                isLoading={overviewNoteSaving}
+                              >
+                                Lagre
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="flex-1 whitespace-pre-wrap text-sm text-[var(--text-primary)]">{note.content}</p>
+                            <div className="mt-4 flex items-center justify-between gap-2 border-t border-[var(--border-primary)] pt-2">
+                              <span className="text-[11px] text-[var(--text-muted)]">
+                                Oppdatert {new Date(note.updated_at).toLocaleDateString("nb-NO")}
+                              </span>
+                              {isOwner && (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingOverviewNoteId(note.id);
+                                      setEditingOverviewNoteContent(note.content);
+                                    }}
+                                    className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--accent-primary)]/10 hover:text-[var(--accent-primary)]"
+                                    title="Rediger notat"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteOverviewNote(note.id)}
+                                    disabled={overviewNoteSaving}
+                                    className="rounded-md p-1.5 text-[var(--text-muted)] hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)] disabled:opacity-50"
+                                    title="Slett notat"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardBody>

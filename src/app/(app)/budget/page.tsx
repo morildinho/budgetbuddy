@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { formatCurrency } from "@/lib/utils";
-import { useBudget, useYearlyBudgets } from "@/hooks/useBudgets";
+import { useBudget, useBudgetPeriod, useYearlyBudgets } from "@/hooks/useBudgets";
 import {
   ChevronLeft,
   ChevronRight,
@@ -81,18 +81,58 @@ function getMonthOptions() {
   return options;
 }
 
+function getCurrentMonthRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end };
+}
+
+function toDateInput(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getNext30DayRange() {
+  const start = new Date();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 29);
+  return { start: toDateInput(start), end: toDateInput(end) };
+}
+
+function formatBudgetDate(value: string) {
+  return new Date(`${value}T12:00:00`).toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function getEntryDateLabel(type: BudgetEntryType) {
+  if (type === "income") return "Forventet dato";
+  if (type === "variable_expense") return "Planlagt dato (valgfritt)";
+  return "Forfallsdato";
+}
+
 export default function BudgetPage() {
-  const [activeTab, setActiveTab] = useState<"monthly" | "yearly" | "categories">("monthly");
+  const initialPeriod = getCurrentMonthRange();
+  const [activeTab, setActiveTab] = useState<"monthly" | "period" | "yearly" | "categories">("monthly");
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{ description: string; amount: string }>({
+  const [editValues, setEditValues] = useState<{ description: string; amount: string; plannedDate: string }>({
     description: "",
     amount: "",
+    plannedDate: "",
   });
+  const [periodStart, setPeriodStart] = useState(initialPeriod.start);
+  const [periodEnd, setPeriodEnd] = useState(initialPeriod.end);
   const [newEntry, setNewEntry] = useState<{
     type: BudgetEntryType;
     description: string;
     amount: string;
     categoryId: string;
+    plannedDate: string;
   } | null>(null);
   const [newCategory, setNewCategory] = useState<{
     name: string;
@@ -114,6 +154,22 @@ export default function BudgetPage() {
   } = useBudget();
 
   const { monthlyStats, loading: yearlyLoading } = useYearlyBudgets();
+  const {
+    entries: periodEntries,
+    undatedEntries,
+    loading: periodLoading,
+    error: periodError,
+  } = useBudgetPeriod(periodStart, periodEnd);
+
+  const periodStats = useMemo(() => {
+    const income = periodEntries
+      .filter((entry) => entry.entry_type === "income")
+      .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    const expenses = periodEntries
+      .filter((entry) => entry.entry_type !== "income")
+      .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    return { income, expenses, balance: income - expenses };
+  }, [periodEntries]);
 
   const {
     categories,
@@ -141,21 +197,23 @@ export default function BudgetPage() {
       groups[entry.entry_type].push(entry);
     });
 
-    // Sort each group by sort_order
+    // Sort dated entries chronologically; undated entries stay at the bottom.
     Object.keys(groups).forEach((key) => {
-      groups[key as BudgetEntryType].sort((a, b) => a.sort_order - b.sort_order);
+      groups[key as BudgetEntryType].sort((a, b) => {
+        if (a.planned_date && b.planned_date) {
+          const dateOrder = a.planned_date.localeCompare(b.planned_date);
+          if (dateOrder !== 0) return dateOrder;
+        } else if (a.planned_date) {
+          return -1;
+        } else if (b.planned_date) {
+          return 1;
+        }
+        return a.sort_order - b.sort_order;
+      });
     });
 
     return groups;
   }, [entries]);
-
-  // Format current month for display
-  const currentMonthDisplay = useMemo(() => {
-    const [year, month] = currentMonth.split("-").map(Number);
-    const date = new Date(year, month - 1, 1);
-    const formatted = date.toLocaleDateString("no-NO", { month: "long", year: "numeric" });
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
-  }, [currentMonth]);
 
   // Get previous month for copy functionality
   const getPreviousMonth = () => {
@@ -165,7 +223,7 @@ export default function BudgetPage() {
   };
 
   const handleAddEntry = (type: BudgetEntryType) => {
-    setNewEntry({ type, description: "", amount: "", categoryId: "" });
+    setNewEntry({ type, description: "", amount: "", categoryId: "", plannedDate: "" });
     setEditingEntry(null);
   };
 
@@ -176,8 +234,9 @@ export default function BudgetPage() {
       entry_type: newEntry.type,
       description: newEntry.description.trim(),
       amount: parseFloat(newEntry.amount),
-      is_recurring: newEntry.type === "fixed_expense" || newEntry.type === "loan",
+      is_recurring: newEntry.type === "income" || newEntry.type === "fixed_expense" || newEntry.type === "loan",
       category_id: newEntry.categoryId || null,
+      planned_date: newEntry.plannedDate || null,
     });
 
     setNewEntry(null);
@@ -188,6 +247,7 @@ export default function BudgetPage() {
     setEditValues({
       description: entry.description,
       amount: String(entry.amount),
+      plannedDate: entry.planned_date || "",
     });
     setNewEntry(null);
   };
@@ -198,6 +258,7 @@ export default function BudgetPage() {
     await updateEntry(id, {
       description: editValues.description.trim(),
       amount: parseFloat(editValues.amount),
+      planned_date: editValues.plannedDate || null,
     });
 
     setEditingEntry(null);
@@ -241,13 +302,20 @@ export default function BudgetPage() {
       )}
 
       {/* Tab Selector */}
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <Button
           variant={activeTab === "monthly" ? "primary" : "outline"}
           onClick={() => setActiveTab("monthly")}
         >
           <Calendar className="h-4 w-4" />
           Måned
+        </Button>
+        <Button
+          variant={activeTab === "period" ? "primary" : "outline"}
+          onClick={() => setActiveTab("period")}
+        >
+          <Calendar className="h-4 w-4" />
+          Periode
         </Button>
         <Button
           variant={activeTab === "yearly" ? "primary" : "outline"}
@@ -379,6 +447,138 @@ export default function BudgetPage() {
             )}
           </div>
         </>
+      )}
+
+      {activeTab === "period" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div>
+                <h2 className="font-semibold text-[var(--text-primary)]">Velg budsjettperiode</h2>
+                <p className="text-xs text-[var(--text-muted)]">Vis inntekter og regninger etter den konkrete datoen på hver post.</p>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+                <Input label="Fra dato" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+                <Input label="Til dato" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const range = getCurrentMonthRange();
+                      setPeriodStart(range.start);
+                      setPeriodEnd(range.end);
+                    }}
+                  >
+                    Denne måneden
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const range = getNext30DayRange();
+                      setPeriodStart(range.start);
+                      setPeriodEnd(range.end);
+                    }}
+                  >
+                    Neste 30 dager
+                  </Button>
+                </div>
+              </div>
+              {periodStart > periodEnd && (
+                <p className="mt-3 text-sm text-[var(--accent-danger)]">Fra-dato må være før til-dato.</p>
+              )}
+            </CardBody>
+          </Card>
+
+          {periodError && (
+            <Card className="border-[var(--accent-danger)]/30">
+              <CardBody><p className="text-sm text-[var(--accent-danger)]">{periodError}</p></CardBody>
+            </Card>
+          )}
+
+          <Card>
+            <CardBody className="p-4 lg:p-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Forventede inntekter</p>
+                  <p className="text-xl font-bold text-[#22c55e]">{formatCurrency(periodStats.income)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Forventede utgifter</p>
+                  <p className="text-xl font-bold text-[#ef4444]">{formatCurrency(periodStats.expenses)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-[var(--text-muted)]">Differanse</p>
+                  <p className={`text-xl font-bold ${periodStats.balance >= 0 ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                    {formatCurrency(periodStats.balance)}
+                  </p>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-[var(--accent-primary)]" />
+                <h2 className="font-semibold text-[var(--text-primary)]">Tidslinje</h2>
+              </div>
+            </CardHeader>
+            <CardBody className="p-0">
+              {periodLoading ? (
+                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[var(--accent-primary)]" /></div>
+              ) : periodEntries.length === 0 ? (
+                <div className="px-6 py-10 text-center text-sm text-[var(--text-muted)]">Ingen daterte budsjettposter i valgt periode.</div>
+              ) : (
+                <div className="divide-y divide-[var(--border-primary)]">
+                  {periodEntries.map((entry) => {
+                    const config = ENTRY_TYPE_CONFIG[entry.entry_type];
+                    const isIncome = entry.entry_type === "income";
+                    return (
+                      <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-[var(--accent-primary)]">{formatBudgetDate(entry.planned_date!)}</p>
+                          <p className="truncate font-medium text-[var(--text-primary)]">{entry.description}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{config.label}</p>
+                        </div>
+                        <p className={`shrink-0 font-semibold ${isIncome ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                          {isIncome ? "+" : "−"}{formatCurrency(Number(entry.amount))}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          {undatedEntries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div>
+                  <h2 className="font-semibold text-[var(--text-primary)]">Poster uten dato</h2>
+                  <p className="text-xs text-[var(--text-muted)]">Disse tilhører måneder som berøres av perioden, men teller ikke i periodesummen før de får en dato.</p>
+                </div>
+              </CardHeader>
+              <CardBody className="p-0">
+                <div className="divide-y divide-[var(--border-primary)]">
+                  {undatedEntries.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
+                      <div>
+                        <p className="font-medium text-[var(--text-primary)]">{entry.description}</p>
+                        <p className="text-xs text-[var(--text-muted)]">{ENTRY_TYPE_CONFIG[entry.entry_type].label} · {formatBudgetDate(entry.budget_month)}</p>
+                      </div>
+                      <p className="font-medium text-[var(--text-primary)]">{formatCurrency(Number(entry.amount))}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )}
+        </div>
       )}
 
       {activeTab === "yearly" && (
@@ -631,11 +831,11 @@ interface EntrySectionProps {
   categories: BudgetCategory[];
   actualSpending: Record<string, number>;
   editingEntry: string | null;
-  editValues: { description: string; amount: string };
-  setEditValues: (values: { description: string; amount: string }) => void;
-  newEntry: { type: BudgetEntryType; description: string; amount: string; categoryId: string } | null;
+  editValues: { description: string; amount: string; plannedDate: string };
+  setEditValues: (values: { description: string; amount: string; plannedDate: string }) => void;
+  newEntry: { type: BudgetEntryType; description: string; amount: string; categoryId: string; plannedDate: string } | null;
   setNewEntry: (
-    entry: { type: BudgetEntryType; description: string; amount: string; categoryId: string } | null
+    entry: { type: BudgetEntryType; description: string; amount: string; categoryId: string; plannedDate: string } | null
   ) => void;
   onAddEntry: () => void;
   onSaveNewEntry: () => void;
@@ -693,7 +893,7 @@ function EntrySection({
           {entries.map((entry) => (
             <div key={entry.id} className="flex items-center justify-between px-4 lg:px-6 py-2">
               {editingEntry === entry.id ? (
-                <div className="flex flex-1 items-center gap-2">
+                <div className="flex flex-1 flex-wrap items-center gap-2">
                   <Input
                     value={editValues.description}
                     onChange={(e) =>
@@ -707,6 +907,13 @@ function EntrySection({
                     value={editValues.amount}
                     onChange={(e) => setEditValues({ ...editValues, amount: e.target.value })}
                     className="w-28 lg:w-32"
+                  />
+                  <Input
+                    type="date"
+                    aria-label={getEntryDateLabel(entry.entry_type)}
+                    value={editValues.plannedDate}
+                    onChange={(e) => setEditValues({ ...editValues, plannedDate: e.target.value })}
+                    className="w-36 lg:w-40"
                   />
                   <Button variant="ghost" size="sm" onClick={() => onSaveEdit(entry.id)}>
                     <Check className="h-4 w-4 text-[#22c55e]" />
@@ -738,6 +945,12 @@ function EntrySection({
                         <span className="text-xs text-[var(--text-muted)]">{cat.name}</span>
                       ) : null;
                     })()}
+                    <span className={`mt-0.5 flex items-center gap-1 text-xs ${entry.planned_date ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)]"}`}>
+                      <Calendar className="h-3 w-3" />
+                      {entry.planned_date
+                        ? `${getEntryDateLabel(entry.entry_type)}: ${formatBudgetDate(entry.planned_date)}`
+                        : "Dato ikke satt"}
+                    </span>
                     {(() => {
                       const actual = actualSpending[entry.id] || 0;
                       if (actual === 0) return null;
@@ -799,19 +1012,29 @@ function EntrySection({
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              {categories.length > 0 && (
-                <div className="mt-2">
-                  <Select
-                    value={newEntry.categoryId}
-                    onChange={(e) => setNewEntry({ ...newEntry, categoryId: e.target.value })}
-                    options={[
-                      { value: "", label: "Ingen kategori" },
-                      ...categories.map((c) => ({ value: c.id, label: c.name })),
-                    ]}
-                    className="w-full sm:w-48"
-                  />
-                </div>
-              )}
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <Input
+                  label={getEntryDateLabel(newEntry.type)}
+                  type="date"
+                  value={newEntry.plannedDate}
+                  onChange={(e) => setNewEntry({ ...newEntry, plannedDate: e.target.value })}
+                  className="w-full sm:w-52"
+                />
+                {categories.length > 0 && (
+                  <div className="w-full sm:w-52">
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Kategori</label>
+                    <Select
+                      value={newEntry.categoryId}
+                      onChange={(e) => setNewEntry({ ...newEntry, categoryId: e.target.value })}
+                      options={[
+                        { value: "", label: "Ingen kategori" },
+                        ...categories.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

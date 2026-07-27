@@ -51,6 +51,14 @@ function getCurrentMonth(): string {
   return getMonthStart(new Date());
 }
 
+function movePlannedDateToMonth(plannedDate: string | null, targetMonth: string): string | null {
+  if (!plannedDate) return null;
+  const day = Number(plannedDate.slice(8, 10));
+  const [year, month] = targetMonth.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
 export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
   const [currentMonth, setCurrentMonth] = useState(options.month || getCurrentMonth());
   const [budget, setBudget] = useState<Budget | null>(null);
@@ -363,6 +371,8 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
           amount: e.amount,
           is_recurring: true,
           sort_order: e.sort_order,
+          category_id: e.category_id,
+          planned_date: movePlannedDateToMonth(e.planned_date, toMonth),
         }));
 
         const { error: insertError } = await supabase
@@ -419,6 +429,69 @@ export function useBudget(options: UseBudgetOptions = {}): UseBudgetReturn {
     currentMonth,
     setCurrentMonth,
   };
+}
+
+export interface BudgetPeriodEntry extends BudgetEntry {
+  budget_month: string;
+}
+
+export function useBudgetPeriod(startDate: string, endDate: string) {
+  const [entries, setEntries] = useState<BudgetPeriodEntry[]>([]);
+  const [undatedEntries, setUndatedEntries] = useState<BudgetPeriodEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
+
+  const fetchPeriod = useCallback(async () => {
+    if (!startDate || !endDate || startDate > endDate) {
+      setEntries([]);
+      setUndatedEntries([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const startMonth = `${startDate.slice(0, 7)}-01`;
+      const endMonth = `${endDate.slice(0, 7)}-01`;
+      const { data, error: fetchError } = await supabase
+        .from("budgets")
+        .select("month, entries:budget_entries(*)")
+        .gte("month", startMonth)
+        .lte("month", endMonth)
+        .order("month", { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      const all = (data || []).flatMap((budget) =>
+        ((budget.entries || []) as BudgetEntry[]).map((entry) => ({
+          ...entry,
+          budget_month: String(budget.month),
+        }))
+      );
+
+      setEntries(
+        all
+          .filter((entry) => entry.planned_date && entry.planned_date >= startDate && entry.planned_date <= endDate)
+          .sort((a, b) => (a.planned_date || "").localeCompare(b.planned_date || "") || a.sort_order - b.sort_order)
+      );
+      setUndatedEntries(all.filter((entry) => !entry.planned_date));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Kunne ikke hente budsjettperioden";
+      setError(message);
+      setEntries([]);
+      setUndatedEntries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [endDate, startDate, supabase]);
+
+  useEffect(() => {
+    fetchPeriod();
+  }, [fetchPeriod]);
+
+  return { entries, undatedEntries, loading, error, refetch: fetchPeriod };
 }
 
 // Hook for yearly overview data

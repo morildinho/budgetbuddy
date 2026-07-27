@@ -88,7 +88,7 @@ export default function TransactionsPage() {
     accountId: selectedAccount === "all" ? undefined : selectedAccount,
   });
 
-  const { accounts } = useBankAccounts();
+  const { accounts } = useBankAccounts("transactions");
   const { icons: merchantIcons } = useMerchantIcons();
   const { receipts: allReceipts } = useReceipts();
 

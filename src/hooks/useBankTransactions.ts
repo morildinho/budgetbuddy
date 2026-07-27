@@ -188,17 +188,18 @@ export interface BankAccount {
   name: string;
   accountNumber: string | null;
   balance: number | null;
+  canViewBalance: boolean;
   source: "sb1";
 }
 
-export function useBankAccounts() {
+export function useBankAccounts(purpose: "balances" | "transactions" = "balances") {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/bank/accounts");
+      const response = await fetch(`/api/bank/accounts?purpose=${purpose}`);
       if (!response.ok) {
         setAccounts([]);
         return;
@@ -206,11 +207,12 @@ export function useBankAccounts() {
 
       const data = await response.json();
       const sb1Accounts = (data.accounts || []).map(
-        (acc: { id: string; name: string; accountNumber?: string | null; balance?: number | null }) => ({
+        (acc: { id: string; name: string; accountNumber?: string | null; balance?: number | null; canViewBalance?: boolean }) => ({
           id: acc.id,
           name: acc.name,
           accountNumber: acc.accountNumber || null,
           balance: acc.balance ?? null,
+          canViewBalance: acc.canViewBalance === true,
           source: "sb1" as const,
         })
       );
@@ -221,7 +223,7 @@ export function useBankAccounts() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [purpose]);
 
   useEffect(() => {
     fetchAccounts();

@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 
 const PERMISSION_LABELS: { key: keyof Permissions; label: string }[] = [
   { key: "receipts", label: "Kvitteringer" },
-  { key: "transactions", label: "Transaksjoner" },
   { key: "budget", label: "Budsjett" },
   { key: "analytics", label: "Analyse" },
   { key: "portfolio", label: "Portefølje" },
@@ -54,19 +53,25 @@ function InviteModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onInvite: (email: string, permissions: Permissions, allowedBankAccountIds: string[] | null) => Promise<string | null>;
+  onInvite: (
+    email: string,
+    permissions: Permissions,
+    allowedBalanceAccountIds: string[],
+    allowedTransactionAccountIds: string[]
+  ) => Promise<string | null>;
 }) {
   const [email, setEmail] = useState("");
   const [permissions, setPermissions] = useState<Permissions>({ ...defaultPermissions });
   const [accounts, setAccounts] = useState<BankAccountOption[]>([]);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [selectedBalanceAccountIds, setSelectedBalanceAccountIds] = useState<string[]>([]);
+  const [selectedTransactionAccountIds, setSelectedTransactionAccountIds] = useState<string[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !permissions.transactions) return;
+    if (!isOpen) return;
 
     let cancelled = false;
     const loadAccounts = async () => {
@@ -83,14 +88,20 @@ function InviteModal({
 
     loadAccounts();
     return () => { cancelled = true; };
-  }, [isOpen, permissions.transactions]);
+  }, [isOpen]);
 
   const handleInvite = async () => {
     setInviting(true);
-    const accountIds = permissions.transactions
-      ? (selectedAccountIds.length > 0 ? selectedAccountIds : null)
-      : null;
-    const link = await onInvite(email, permissions, accountIds);
+    const invitePermissions = {
+      ...permissions,
+      transactions: selectedTransactionAccountIds.length > 0,
+    };
+    const link = await onInvite(
+      email,
+      invitePermissions,
+      selectedBalanceAccountIds,
+      selectedTransactionAccountIds
+    );
     setInviting(false);
     if (link) setInviteLink(link);
   };
@@ -105,25 +116,23 @@ function InviteModal({
   const handleClose = () => {
     setEmail("");
     setPermissions({ ...defaultPermissions });
-    setSelectedAccountIds([]);
+    setSelectedBalanceAccountIds([]);
+    setSelectedTransactionAccountIds([]);
     setInviteLink(null);
     onClose();
   };
 
   const togglePermission = (key: keyof Permissions) => {
-    if (key === "overview") return; // always on
-    setPermissions((p) => {
-      const next = { ...p, [key]: !p[key] };
-      if (key === "transactions" && !next.transactions) {
-        setSelectedAccountIds([]);
-      }
-      return next;
-    });
+    if (key === "overview" || key === "transactions") return;
+    setPermissions((current) => ({ ...current, [key]: !current[key] }));
   };
 
-  const toggleAccount = (id: string) => {
-    setSelectedAccountIds((prev) =>
-      prev.includes(id) ? prev.filter((accountId) => accountId !== id) : [...prev, id]
+  const toggleAccount = (
+    id: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    setter((previous) =>
+      previous.includes(id) ? previous.filter((accountId) => accountId !== id) : [...previous, id]
     );
   };
 
@@ -170,40 +179,70 @@ function InviteModal({
             </div>
           </div>
 
-          {permissions.transactions && (
-            <div className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-3">
-              <p className="text-sm font-medium text-[var(--text-secondary)]">Bankkontoer</p>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Velg hvilke eksisterende kontoer gjesten får se. Hvis ingen er valgt, deles alle kontoer.
-              </p>
-              <div className="mt-3 space-y-2">
-                {loadingAccounts ? (
-                  <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Laster kontoer...
+          <div className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-3">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Bankkontoer</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Velg saldo og transaksjoner separat. Ingenting deles hvis ingen valg er markert.
+            </p>
+            <div className="mt-3 space-y-2">
+              {loadingAccounts ? (
+                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Laster kontoer...
+                </div>
+              ) : accounts.length === 0 ? (
+                <p className="text-xs text-[var(--text-muted)]">Ingen bankkontoer er koblet til ennå.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] gap-2 px-2 text-[11px] font-medium text-[var(--text-muted)]">
+                    <span>Konto</span>
+                    <span className="text-center">Saldo</span>
+                    <span className="text-center">Transaksjoner</span>
                   </div>
-                ) : accounts.length === 0 ? (
-                  <p className="text-xs text-[var(--text-muted)]">Ingen bankkontoer er koblet til ennå.</p>
-                ) : (
-                  accounts.map((account) => (
-                    <button
-                      key={account.id}
-                      type="button"
-                      onClick={() => toggleAccount(account.id)}
-                      className="flex w-full items-center justify-between rounded border border-[var(--border-primary)] px-3 py-2 text-left text-xs hover:bg-[var(--bg-card)]"
-                    >
-                      <span className="text-[var(--text-primary)]">
-                        {account.name}{account.accountNumber ? ` (...${account.accountNumber.slice(-4)})` : ""}
-                      </span>
-                      <span className={selectedAccountIds.includes(account.id) ? "text-[var(--accent-success)]" : "text-[var(--text-muted)]"}>
-                        {selectedAccountIds.includes(account.id) ? "Valgt" : "Alle hvis ingen valgt"}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
+                  {accounts.map((account) => {
+                    const sharesBalance = selectedBalanceAccountIds.includes(account.id);
+                    const sharesTransactions = selectedTransactionAccountIds.includes(account.id);
+                    return (
+                      <div
+                        key={account.id}
+                        className="grid grid-cols-[minmax(0,1fr)_4.5rem_6.5rem] items-center gap-2 rounded border border-[var(--border-primary)] bg-[var(--bg-card)] px-3 py-2"
+                      >
+                        <span className="min-w-0 truncate text-xs text-[var(--text-primary)]">
+                          {account.name}{account.accountNumber ? ` (•••• ${account.accountNumber.slice(-4)})` : ""}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleAccount(account.id, setSelectedBalanceAccountIds)}
+                          className={cn(
+                            "mx-auto flex h-6 w-6 items-center justify-center rounded border transition-colors",
+                            sharesBalance
+                              ? "border-[var(--accent-success)] bg-[var(--accent-success)] text-white"
+                              : "border-[var(--border-primary)] text-transparent hover:border-[var(--accent-primary)]"
+                          )}
+                          aria-label={`${sharesBalance ? "Fjern" : "Del"} saldo for ${account.name}`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleAccount(account.id, setSelectedTransactionAccountIds)}
+                          className={cn(
+                            "mx-auto flex h-6 w-6 items-center justify-center rounded border transition-colors",
+                            sharesTransactions
+                              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white"
+                              : "border-[var(--border-primary)] text-transparent hover:border-[var(--accent-primary)]"
+                          )}
+                          aria-label={`${sharesTransactions ? "Fjern" : "Del"} transaksjoner for ${account.name}`}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleClose}>Avbryt</Button>
@@ -515,6 +554,11 @@ export default function SettingsPage() {
                               </span>
                             </div>
                             <div className="mt-1 flex flex-wrap gap-1">
+                              {Array.isArray(member.allowed_balance_account_ids) && member.allowed_balance_account_ids.length > 0 && (
+                                <span className="rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-xs text-[var(--text-muted)]">
+                                  Saldo ({member.allowed_balance_account_ids.length})
+                                </span>
+                              )}
                               {["overview", "receipts", "transactions", "budget", "analytics", "portfolio"]
                                 .filter((k) => member[`can_view_${k}` as keyof HouseholdMember])
                                 .map((k) => (
@@ -607,11 +651,12 @@ export default function SettingsPage() {
       <InviteModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
-        onInvite={async (email, permissions, allowedBankAccountIds) => {
+        onInvite={async (email, permissions, allowedBalanceAccountIds, allowedTransactionAccountIds) => {
           const result = await inviteMember({
             email: email || undefined,
             permissions,
-            allowedBankAccountIds,
+            allowedBalanceAccountIds,
+            allowedTransactionAccountIds,
           });
           return result?.inviteLink ?? null;
         }}

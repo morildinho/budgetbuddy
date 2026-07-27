@@ -24,6 +24,7 @@ export interface HouseholdMember {
   can_view_analytics: boolean;
   can_view_portfolio: boolean;
   allowed_bank_account_ids: string[] | null;
+  allowed_balance_account_ids: string[];
   created_at: string;
   accepted_at: string | null;
 }
@@ -40,7 +41,8 @@ export interface Permissions {
 interface InviteMemberOptions {
   email?: string;
   permissions: Permissions;
-  allowedBankAccountIds?: string[] | null;
+  allowedBalanceAccountIds?: string[];
+  allowedTransactionAccountIds?: string[];
 }
 
 interface InviteResult {

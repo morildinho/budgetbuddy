@@ -48,7 +48,7 @@ interface WidgetDefinition {
   id: WidgetId;
   title: string;
   description: string;
-  permission?: "receipts" | "transactions" | "budget" | "analytics" | "portfolio";
+  permission?: "balances" | "transactions" | "receipts" | "budget" | "analytics" | "portfolio";
 }
 
 interface BudgetMonthSummary {
@@ -93,7 +93,7 @@ const WIDGETS: WidgetDefinition[] = [
     id: "accountBalances",
     title: "Kontobeholdning",
     description: "Total saldo og saldo per SpareBank1-konto.",
-    permission: "transactions",
+    permission: "balances",
   },
   {
     id: "portfolio",
@@ -133,6 +133,7 @@ const DEFAULT_WIDGETS: WidgetId[] = [
 
 const NO_ACCESS = {
   overview: false,
+  balances: false,
   receipts: false,
   transactions: false,
   budget: false,

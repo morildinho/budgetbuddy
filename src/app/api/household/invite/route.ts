@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getSpareBank1AccountsForOwner } from "@/lib/sparebank1/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -11,22 +12,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, permissions = {}, allowedBankAccountIds = null } = body;
+    const {
+      email,
+      permissions = {},
+      allowedBalanceAccountIds = [],
+      allowedTransactionAccountIds = [],
+    } = body;
 
-    const allowedAccountIds = Array.isArray(allowedBankAccountIds)
-      ? allowedBankAccountIds.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
-      : null;
+    const normalizeAccountIds = (value: unknown): string[] => Array.isArray(value)
+      ? Array.from(new Set(value.filter((id): id is string => typeof id === "string" && id.length > 0)))
+      : [];
+    const balanceAccountIds = normalizeAccountIds(allowedBalanceAccountIds);
+    const transactionAccountIds = normalizeAccountIds(allowedTransactionAccountIds);
+    const requestedAccountIds = Array.from(new Set([...balanceAccountIds, ...transactionAccountIds]));
 
-    if (allowedAccountIds && allowedAccountIds.length > 0) {
-      const { data: ownedAccounts, error: accountError } = await supabase
-        .from("bank_accounts")
-        .select("id")
-        .eq("user_id", user.id)
-        .in("id", allowedAccountIds);
-
-      if (accountError) throw accountError;
-
-      if ((ownedAccounts || []).length !== allowedAccountIds.length) {
+    if (requestedAccountIds.length > 0) {
+      const ownerAccounts = await getSpareBank1AccountsForOwner(user.id);
+      const ownedIds = new Set(ownerAccounts.map((account) => account.id));
+      if (requestedAccountIds.some((id) => !ownedIds.has(id))) {
         return NextResponse.json({ error: "Invalid bank account selection" }, { status: 400 });
       }
     }
@@ -62,11 +65,12 @@ export async function POST(request: NextRequest) {
         invite_status: "pending",
         can_view_overview: true,
         can_view_receipts: permissions.receipts ?? false,
-        can_view_transactions: permissions.transactions ?? false,
+        can_view_transactions: transactionAccountIds.length > 0,
         can_view_budget: permissions.budget ?? false,
         can_view_analytics: permissions.analytics ?? false,
         can_view_portfolio: permissions.portfolio ?? false,
-        allowed_bank_account_ids: permissions.transactions ? allowedAccountIds : null,
+        allowed_bank_account_ids: transactionAccountIds,
+        allowed_balance_account_ids: balanceAccountIds,
       })
       .select()
       .single();

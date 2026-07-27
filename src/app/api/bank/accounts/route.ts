@@ -1,137 +1,68 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { getSpareBank1AccountsForOwner } from "@/lib/sparebank1/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const SB1_API_URL = "https://api.sparebank1.no";
-const SB1_TOKEN_URL = "https://api-auth.sparebank1.no/oauth/token";
-const SB1_CLIENT_ID = process.env.SB1_CLIENT_ID;
-const SB1_CLIENT_SECRET = process.env.SB1_CLIENT_SECRET;
-
-async function refreshAccessToken(refreshToken: string): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-} | null> {
-  if (!SB1_CLIENT_ID || !SB1_CLIENT_SECRET) return null;
-
-  const response = await fetch(SB1_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: SB1_CLIENT_ID,
-      client_secret: SB1_CLIENT_SECRET,
-    }),
-  });
-
-  if (!response.ok) return null;
-  return response.json();
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+    const purpose = new URL(request.url).searchParams.get("purpose") === "transactions"
+      ? "transactions"
+      : "balances";
+
+    const { data: membership } = await supabase
+      .from("household_members")
+      .select("owner_id, can_view_overview, can_view_transactions, allowed_bank_account_ids, allowed_balance_account_ids")
+      .eq("member_user_id", user.id)
+      .eq("invite_status", "accepted")
+      .maybeSingle();
+
+    // Users who are not accepted members of somebody else's household are owners
+    // of their own bank connection and can see all of their own accounts.
+    if (!membership?.owner_id) {
+      const accounts = await getSpareBank1AccountsForOwner(user.id);
+      return NextResponse.json({
+        accounts: accounts.map((account) => ({ ...account, canViewBalance: true })),
+      });
     }
 
-    const { data: connection, error: connError } = await supabase
-      .from("bank_connections")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("provider", "sparebank1")
-      .single();
+    const balanceIds = Array.isArray(membership.allowed_balance_account_ids)
+      ? membership.allowed_balance_account_ids.filter((id): id is string => typeof id === "string")
+      : [];
+    const transactionIds = Array.isArray(membership.allowed_bank_account_ids)
+      ? membership.allowed_bank_account_ids.filter((id): id is string => typeof id === "string")
+      : membership.allowed_bank_account_ids === null ? null : [];
 
-    if (connError || !connection) {
-      return NextResponse.json(
-        { error: "No bank connection found." },
-        { status: 404 }
-      );
+    if (purpose === "balances" && (!membership.can_view_overview || balanceIds.length === 0)) {
+      return NextResponse.json({ accounts: [] });
+    }
+    if (purpose === "transactions" && !membership.can_view_transactions) {
+      return NextResponse.json({ accounts: [] });
+    }
+    if (purpose === "transactions" && Array.isArray(transactionIds) && transactionIds.length === 0) {
+      return NextResponse.json({ accounts: [] });
     }
 
-    let accessToken = connection.access_token;
+    const ownerAccounts = await getSpareBank1AccountsForOwner(membership.owner_id);
+    const allowedAccounts = ownerAccounts.filter((account) => {
+      if (purpose === "balances") return balanceIds.includes(account.id);
+      return transactionIds === null || transactionIds.includes(account.id);
+    });
 
-    // Check if token is expired, try refresh
-    const tokenExpiry = new Date(connection.token_expires_at);
-    if (tokenExpiry <= new Date()) {
-      if (!connection.refresh_token) {
-        return NextResponse.json(
-          { error: "Bank connection expired." },
-          { status: 401 }
-        );
-      }
-
-      const newTokens = await refreshAccessToken(connection.refresh_token);
-      if (!newTokens) {
-        return NextResponse.json(
-          { error: "Failed to refresh bank token." },
-          { status: 401 }
-        );
-      }
-
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + newTokens.expires_in);
-
-      await supabase
-        .from("bank_connections")
-        .update({
-          access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token,
-          token_expires_at: expiresAt.toISOString(),
-          status: "active",
-        })
-        .eq("id", connection.id);
-
-      accessToken = newTokens.access_token;
-    }
-
-    // Fetch all accounts from SB1
-    const accountsResponse = await fetch(
-      `${SB1_API_URL}/personal/banking/accounts`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/vnd.sparebank1.v1+json;charset=utf-8",
-        },
-      }
-    );
-
-    if (!accountsResponse.ok) {
-      const errText = await accountsResponse.text();
-      console.error("Failed to fetch accounts:", accountsResponse.status, errText);
-      return NextResponse.json(
-        { error: `Failed to fetch accounts (${accountsResponse.status})` },
-        { status: 502 }
-      );
-    }
-
-    const accountsData = await accountsResponse.json();
-
-    // Normalize — the API may return an array or an object with an accounts field
-    const rawAccounts = Array.isArray(accountsData)
-      ? accountsData
-      : accountsData.accounts || accountsData.items || [];
-
-    const accounts = rawAccounts.map((acc: Record<string, unknown>) => ({
-      id: acc.key || acc.accountKey || acc.id,
-      name: acc.name || acc.description || acc.accountNumber || "Ukjent konto",
-      accountNumber: acc.accountNumber || null,
-      balance: typeof acc.balance === "number" ? acc.balance : null,
-    }));
-
-    return NextResponse.json({ accounts });
+    return NextResponse.json({
+      accounts: allowedAccounts.map((account) => {
+        const canViewBalance = balanceIds.includes(account.id);
+        return {
+          ...account,
+          balance: canViewBalance ? account.balance : null,
+          canViewBalance,
+        };
+      }),
+    });
   } catch (error) {
-    console.error("Accounts fetch error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch accounts" },
-      { status: 500 }
-    );
+    console.error("Accounts fetch error:", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Failed to fetch accounts" }, { status: 500 });
   }
 }

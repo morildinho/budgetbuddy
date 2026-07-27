@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 interface CanView {
   overview: boolean;
+  balances: boolean;
   receipts: boolean;
   transactions: boolean;
   budget: boolean;
@@ -19,6 +20,7 @@ interface UsePermissionsReturn {
 
 const NO_ACCESS: CanView = {
   overview: false,
+  balances: false,
   receipts: false,
   transactions: false,
   budget: false,

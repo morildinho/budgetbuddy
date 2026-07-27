@@ -23,6 +23,7 @@ export async function GET(_request: NextRequest) {
         isOwner: true,
         canView: {
           overview: true,
+          balances: true,
           receipts: true,
           transactions: true,
           budget: true,
@@ -45,6 +46,9 @@ export async function GET(_request: NextRequest) {
         isOwner: false,
         canView: {
           overview: membership.can_view_overview,
+          balances: membership.can_view_overview
+            && Array.isArray(membership.allowed_balance_account_ids)
+            && membership.allowed_balance_account_ids.length > 0,
           receipts: membership.can_view_receipts,
           transactions: membership.can_view_transactions,
           budget: membership.can_view_budget,
@@ -84,6 +88,9 @@ export async function GET(_request: NextRequest) {
             isOwner: false,
             canView: {
               overview: acceptedInvite.can_view_overview,
+              balances: acceptedInvite.can_view_overview
+                && Array.isArray(acceptedInvite.allowed_balance_account_ids)
+                && acceptedInvite.allowed_balance_account_ids.length > 0,
               receipts: acceptedInvite.can_view_receipts,
               transactions: acceptedInvite.can_view_transactions,
               budget: acceptedInvite.can_view_budget,
@@ -100,6 +107,7 @@ export async function GET(_request: NextRequest) {
       isOwner: true,
       canView: {
         overview: true,
+        balances: true,
         receipts: true,
         transactions: true,
         budget: true,

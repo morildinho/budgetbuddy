@@ -29,6 +29,7 @@ export interface AssetWithMetrics extends PortfolioAsset {
   currentValue: number | null;
   currentValueNok: number | null;
   gainLoss: number | null;
+  gainLossNok: number | null;
   gainLossPercent: number | null;
   change24h: number | null;
 }
@@ -179,10 +180,21 @@ export function usePortfolio() {
     const currentValueNok = currentPriceNok != null ? asset.quantity * currentPriceNok : null;
 
     let gainLoss: number | null = null;
+    let gainLossNok: number | null = null;
     let gainLossPercent: number | null = null;
     if (!isCash && currentPrice != null && asset.purchase_price != null) {
       gainLoss = (currentPrice - asset.purchase_price) * asset.quantity;
       gainLossPercent = ((currentPrice - asset.purchase_price) / asset.purchase_price) * 100;
+
+      const purchasePriceNok = asset.currency === "NOK"
+        ? asset.purchase_price
+        : currentPrice !== 0 && currentPriceNok != null
+          ? asset.purchase_price * (currentPriceNok / currentPrice)
+          : null;
+
+      if (currentPriceNok != null && purchasePriceNok != null) {
+        gainLossNok = (currentPriceNok - purchasePriceNok) * asset.quantity;
+      }
     }
 
     return {
@@ -192,6 +204,7 @@ export function usePortfolio() {
       currentValue,
       currentValueNok,
       gainLoss,
+      gainLossNok,
       gainLossPercent,
       change24h: isCash ? 0 : priceInfo?.change_24h ?? null,
     };

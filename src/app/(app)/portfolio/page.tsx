@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Plus, RefreshCw, Trash2, Bitcoin, BarChart2, Banknote, Pencil, MessageSquare } from "lucide-react";
-import { Card, StatCard } from "@/components/ui/Card";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -11,7 +12,14 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 
 type AssetType = "crypto" | "stock" | "cash";
-type TabType = "crypto" | "stock" | "cash";
+
+const ALLOCATION_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ec4899", "#06b6d4", "#8b5cf6", "#f97316", "#84cc16", "#e11d48", "#14b8a6"];
+
+const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  crypto: "Krypto",
+  stock: "Aksje",
+  cash: "Kontanter",
+};
 
 function formatCurrency(value: number | null, currency = "USD"): string {
   if (value == null) return "—";
@@ -45,10 +53,133 @@ function ChangeBadge({ change }: { change: number | null }) {
   );
 }
 
+function TypeBadge({ type }: { type: AssetType }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+        type === "crypto" && "bg-violet-500/15 text-violet-400",
+        type === "stock" && "bg-sky-500/15 text-sky-400",
+        type === "cash" && "bg-emerald-500/15 text-emerald-400"
+      )}
+    >
+      {ASSET_TYPE_LABELS[type]}
+    </span>
+  );
+}
+
+function AllocationChart({ assets, loading }: { assets: AssetWithMetrics[]; loading: boolean }) {
+  const allocation = assets
+    .map((asset) => ({
+      id: asset.id,
+      symbol: asset.symbol,
+      name: asset.name,
+      type: asset.asset_type,
+      value: asset.currentValueNok ?? (asset.currency === "NOK" ? asset.currentValue : null),
+    }))
+    .filter((item): item is typeof item & { value: number } => item.value != null && item.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  const total = allocation.reduce((sum, item) => sum + item.value, 0);
+  const chartData = allocation.map((item, index) => ({
+    ...item,
+    color: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length],
+    percentage: total > 0 ? (item.value / total) * 100 : 0,
+  }));
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <div>
+          <h2 className="font-semibold text-[var(--text-primary)]">Porteføljefordeling</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">Andel av total markedsverdi i NOK</p>
+        </div>
+      </CardHeader>
+      <CardBody>
+        {loading ? (
+          <div className="grid min-h-72 animate-pulse gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.8fr)]">
+            <div className="mx-auto h-64 w-64 rounded-full bg-[var(--bg-secondary)]" />
+            <div className="space-y-3 py-4">
+              {[...Array(4)].map((_, index) => <div key={index} className="h-10 rounded bg-[var(--bg-secondary)]" />)}
+            </div>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="py-12 text-center">
+            <BarChart2 className="mx-auto mb-3 h-10 w-10 text-[var(--text-muted)]" />
+            <p className="text-sm text-[var(--text-secondary)]">Ingen markedsverdier å vise ennå</p>
+          </div>
+        ) : (
+          <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.8fr)]">
+            <div
+              className="relative h-72 min-w-0"
+              role="img"
+              aria-label={`Sektordiagram over ${chartData.length} beholdninger med totalverdi ${formatCurrency(total, "NOK")}`}
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="symbol"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="56%"
+                    outerRadius="82%"
+                    paddingAngle={2}
+                    stroke="var(--bg-card)"
+                    strokeWidth={2}
+                  >
+                    {chartData.map((item) => <Cell key={item.id} fill={item.color} />)}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value), "NOK")}
+                    contentStyle={{
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-primary)",
+                      borderRadius: "0.75rem",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xs text-[var(--text-muted)]">Totalt</span>
+                <span className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatCurrency(total, "NOK")}</span>
+              </div>
+            </div>
+
+            <div className="max-h-72 space-y-2 overflow-y-auto pr-1" role="list" aria-label="Porteføljefordeling i tekst">
+              {chartData.map((item) => (
+                <div
+                  key={item.id}
+                  role="listitem"
+                  className="flex items-center gap-3 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/50 px-3 py-2"
+                >
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.symbol}</span>
+                      <span className="shrink-0 text-sm font-semibold text-[var(--text-primary)]">{item.percentage.toFixed(1)}%</span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-3 text-xs text-[var(--text-muted)]">
+                      <span className="truncate">{item.name} · {ASSET_TYPE_LABELS[item.type]}</span>
+                      <span className="shrink-0">{formatCurrency(item.value, "NOK")}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 function SkeletonRow() {
   return (
     <tr className="border-b border-[var(--border-primary)]">
-      {[...Array(8)].map((_, i) => (
+      {[...Array(9)].map((_, i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-4 animate-pulse rounded bg-[var(--bg-secondary)]" />
         </td>
@@ -77,6 +208,7 @@ function AssetTable({
           <thead>
             <tr className="border-b border-[var(--border-primary)] text-left text-xs text-[var(--text-muted)]">
               <th className="px-4 py-3 font-medium">Symbol / Navn</th>
+              <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium">Antall</th>
               <th className="px-4 py-3 font-medium">Kjøpspris</th>
               <th className="px-4 py-3 font-medium">Nåværende pris</th>
@@ -112,6 +244,7 @@ function AssetTable({
         <thead>
           <tr className="border-b border-[var(--border-primary)] text-left text-xs text-[var(--text-muted)]">
             <th className="px-4 py-3 font-medium">Symbol / Navn</th>
+            <th className="px-4 py-3 font-medium">Type</th>
             <th className="px-4 py-3 font-medium">Antall</th>
             <th className="px-4 py-3 font-medium">Kjøpspris</th>
             <th className="px-4 py-3 font-medium">Nåværende pris</th>
@@ -123,7 +256,8 @@ function AssetTable({
         </thead>
         <tbody>
           {assets.map((asset) => {
-            const glPositive = asset.gainLoss != null && asset.gainLoss >= 0;
+            const glPositive = asset.gainLossNok != null && asset.gainLossNok > 0;
+            const glNegative = asset.gainLossNok != null && asset.gainLossNok < 0;
             return (
               <tr
                 key={asset.id}
@@ -138,6 +272,9 @@ function AssetTable({
                       <span className="line-clamp-2">{asset.notes}</span>
                     </div>
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  <TypeBadge type={asset.asset_type} />
                 </td>
                 <td className="px-4 py-3 text-[var(--text-secondary)]">
                   {formatQuantity(Number(asset.quantity))}
@@ -172,12 +309,14 @@ function AssetTable({
                   ) : <span className="text-[var(--text-muted)]">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  {asset.gainLoss != null ? (
+                  {asset.gainLossNok != null ? (
                     <div className={cn(
                       "font-medium text-sm",
-                      glPositive ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"
+                      glPositive && "text-[var(--accent-success)]",
+                      glNegative && "text-[var(--accent-danger)]",
+                      !glPositive && !glNegative && "text-[var(--text-secondary)]"
                     )}>
-                      {glPositive ? "+" : ""}{formatCurrency(asset.gainLoss, asset.currency)}
+                      {glPositive ? "+" : ""}{formatCurrency(asset.gainLossNok, "NOK")}
                       {asset.gainLossPercent != null && (
                         <div className="text-xs font-normal">
                           {glPositive ? "+" : ""}{asset.gainLossPercent.toFixed(2)}%
@@ -223,7 +362,6 @@ function AssetTable({
 export default function PortfolioPage() {
   const { isOwner } = usePermissions();
   const { assets, loading, lastUpdated, addAsset, updateAsset, deleteAsset, refresh } = usePortfolio();
-  const [activeTab, setActiveTab] = useState<TabType>("crypto");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAsset, setEditingAsset] = useState<AssetWithMetrics | null>(null);
   const [editNotes, setEditNotes] = useState("");
@@ -243,15 +381,15 @@ export default function PortfolioPage() {
   const cryptoAssets = assets.filter((a) => a.asset_type === "crypto");
   const stockAssets = assets.filter((a) => a.asset_type === "stock");
   const cashAssets = assets.filter((a) => a.asset_type === "cash");
-  const displayedAssets = activeTab === "crypto" ? cryptoAssets : activeTab === "stock" ? stockAssets : cashAssets;
 
-  // Summary stats
-  const totalValue = assets.reduce((sum, a) => {
-    return sum + (a.currentValueNok ?? a.currentValue ?? 0);
+  // Summary stats in NOK. Never add unconverted values from mixed currencies.
+  const totalValue = assets.reduce((sum, asset) => {
+    const valueNok = asset.currentValueNok ?? (asset.currency === "NOK" ? asset.currentValue : null);
+    return sum + (valueNok ?? 0);
   }, 0);
 
-  const totalGainLoss = assets.reduce((sum, a) => sum + (a.gainLoss ?? 0), 0);
-  const hasGainLossData = assets.some((a) => a.gainLoss != null);
+  const totalGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLossNok ?? 0), 0);
+  const hasGainLossData = assets.some((asset) => asset.gainLossNok != null);
 
   const handleAdd = async () => {
     const isCash = form.type === "cash";
@@ -271,7 +409,6 @@ export default function PortfolioPage() {
     setAdding(false);
     if (success) {
       setShowAddModal(false);
-      setActiveTab(form.type);
       setForm({ type: "crypto", symbol: "", name: "", quantity: "", purchase_price: "", currency: "USD", notes: "" });
     }
   };
@@ -319,7 +456,7 @@ export default function PortfolioPage() {
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           title="Total verdi"
-          value={loading ? "..." : formatCurrency(totalValue, assets.some(a => a.currentValueNok != null) ? "NOK" : "USD")}
+          value={loading ? "..." : formatCurrency(totalValue, "NOK")}
           icon={<TrendingUp className="h-5 w-5 text-[var(--accent-primary)]" />}
         />
         <StatCard
@@ -328,15 +465,22 @@ export default function PortfolioPage() {
             loading
               ? "..."
               : hasGainLossData
-              ? formatCurrency(totalGainLoss, "USD")
+              ? formatCurrency(totalGainLoss, "NOK")
               : "—"
           }
-          changeType={hasGainLossData ? (totalGainLoss >= 0 ? "positive" : "negative") : "neutral"}
+          valueClassName={cn(
+            hasGainLossData && totalGainLoss > 0 && "text-[var(--accent-success)]",
+            hasGainLossData && totalGainLoss < 0 && "text-[var(--accent-danger)]",
+            hasGainLossData && totalGainLoss === 0 && "text-[var(--text-secondary)]"
+          )}
+          changeType={hasGainLossData ? (totalGainLoss > 0 ? "positive" : totalGainLoss < 0 ? "negative" : "neutral") : "neutral"}
           change={!hasGainLossData ? "Legg til kjøpspris for å se" : undefined}
           icon={
-            totalGainLoss >= 0
+            totalGainLoss > 0
               ? <TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />
-              : <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+              : totalGainLoss < 0
+                ? <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+                : <BarChart2 className="h-5 w-5 text-[var(--text-muted)]" />
           }
         />
         <StatCard
@@ -347,37 +491,25 @@ export default function PortfolioPage() {
         />
       </div>
 
-      {/* Tabs + Table */}
+      <AllocationChart assets={assets} loading={loading} />
+
+      {/* Combined holdings table */}
       <Card>
-        <div className="border-b border-[var(--border-primary)] px-4">
-          <div className="flex gap-1">
-            {(["crypto", "stock", "cash"] as TabType[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                  activeTab === tab
-                    ? "border-[var(--accent-primary)] text-[var(--accent-primary)]"
-                    : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-                )}
-              >
-                {tab === "crypto" ? <Bitcoin className="h-4 w-4" /> : tab === "stock" ? <BarChart2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
-                {tab === "crypto" ? "Krypto" : tab === "stock" ? "Aksjer" : "Kontanter"}
-                <span className={cn(
-                  "rounded-full px-1.5 py-0.5 text-xs",
-                  activeTab === tab
-                    ? "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]"
-                    : "bg-[var(--bg-secondary)] text-[var(--text-muted)]"
-                )}>
-                  {tab === "crypto" ? cryptoAssets.length : tab === "stock" ? stockAssets.length : cashAssets.length}
-                </span>
-              </button>
-            ))}
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-[var(--text-primary)]">Beholdning</h2>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Alle aksjer, kryptovalutaer og kontanter i én liste
+              </p>
+            </div>
+            <span className="rounded-full bg-[var(--bg-secondary)] px-2.5 py-1 text-xs text-[var(--text-muted)]">
+              {assets.length} {assets.length === 1 ? "element" : "elementer"}
+            </span>
           </div>
-        </div>
+        </CardHeader>
         <AssetTable
-          assets={displayedAssets}
+          assets={assets}
           onDelete={deleteAsset}
           onEdit={openEditNotes}
           loading={loading}

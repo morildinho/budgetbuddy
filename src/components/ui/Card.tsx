@@ -51,12 +51,13 @@ export function CardBody({ children, className }: CardBodyProps) {
 interface StatCardProps {
   title: string;
   value: string | number;
+  valueClassName?: string;
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon?: React.ReactNode;
 }
 
-export function StatCard({ title, value, change, changeType = "neutral", icon }: StatCardProps) {
+export function StatCard({ title, value, valueClassName, change, changeType = "neutral", icon }: StatCardProps) {
   const changeColors = {
     positive: "text-[var(--accent-success)]",
     negative: "text-[var(--accent-danger)]",
@@ -68,7 +69,7 @@ export function StatCard({ title, value, change, changeType = "neutral", icon }:
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-sm text-[var(--text-muted)] truncate">{title}</p>
-          <p className="mt-1 text-2xl font-bold text-[var(--text-primary)] truncate">{value}</p>
+          <p className={cn("mt-1 truncate text-2xl font-bold text-[var(--text-primary)]", valueClassName)}>{value}</p>
           {change && (
             <p className={cn("mt-1 text-sm truncate", changeColors[changeType])}>
               {changeType === "positive" && "↗ "}

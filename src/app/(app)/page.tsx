@@ -27,7 +27,7 @@ import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useReceipts } from "@/hooks/useReceipts";
 import { useBankAccounts } from "@/hooks/useBankTransactions";
@@ -463,7 +463,7 @@ export default function DashboardPage() {
     });
   }, [accounts, accountOrder]);
   const portfolioValue = assets.reduce((sum, asset) => sum + (asset.currentValueNok ?? 0), 0);
-  const portfolioGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLoss ?? 0), 0);
+  const portfolioGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLossNok ?? 0), 0);
   const portfolioNotes = assets
     .filter((asset) => asset.notes?.trim())
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
@@ -966,8 +966,13 @@ export default function DashboardPage() {
                         <div>
                           <p className="text-xs text-[var(--text-muted)]">Total verdi</p>
                           <p className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(portfolioValue)}</p>
-                          <p className={`text-xs ${portfolioGainLoss >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}>
-                            {portfolioGainLoss >= 0 ? "+" : ""}{formatCurrency(portfolioGainLoss)} estimert gevinst/tap
+                          <p className={cn(
+                            "text-xs",
+                            portfolioGainLoss > 0 && "text-[var(--accent-success)]",
+                            portfolioGainLoss < 0 && "text-[var(--accent-danger)]",
+                            portfolioGainLoss === 0 && "text-[var(--text-muted)]"
+                          )}>
+                            {portfolioGainLoss > 0 ? "+" : ""}{formatCurrency(portfolioGainLoss)} estimert gevinst/tap
                           </p>
                         </div>
                         <div className="flex gap-2">

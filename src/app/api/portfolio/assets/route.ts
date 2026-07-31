@@ -34,37 +34,57 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { symbol, name, asset_type, quantity, purchase_price, currency, notes } = body;
+    const normalizedSymbol = typeof body.symbol === "string" ? body.symbol.trim().toUpperCase() : "";
+    const normalizedName = typeof body.name === "string" ? body.name.trim() : "";
+    const normalizedType = typeof body.asset_type === "string" ? body.asset_type.trim().toLowerCase() : "";
+    const normalizedCurrency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "USD";
+    const quantity = Number(body.quantity);
+    const purchasePrice = body.purchase_price == null || body.purchase_price === ""
+      ? null
+      : Number(body.purchase_price);
+    const notes = typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null;
 
-    if (!symbol || !name || !asset_type || quantity == null) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!normalizedSymbol || !normalizedName) {
+      return NextResponse.json({ error: "Symbol and name are required" }, { status: 400 });
     }
 
-    if (!["stock", "crypto", "cash"].includes(asset_type)) {
+    if (!["stock", "crypto", "cash"].includes(normalizedType)) {
       return NextResponse.json({ error: "Invalid asset type" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("portfolio_assets")
-      .insert({
-        user_id: user.id,
-        symbol: symbol.toUpperCase(),
-        name,
-        asset_type,
-        quantity: parseFloat(quantity),
-        purchase_price: purchase_price ? parseFloat(purchase_price) : null,
-        currency: currency || "USD",
-        notes: notes || null,
-      })
-      .select()
-      .single();
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return NextResponse.json({ error: "Quantity must be greater than zero" }, { status: 400 });
+    }
 
-    if (error) throw error;
+    if (purchasePrice != null && (!Number.isFinite(purchasePrice) || purchasePrice < 0)) {
+      return NextResponse.json({ error: "Invalid purchase price" }, { status: 400 });
+    }
 
-    return NextResponse.json({ asset: data });
+    const { data, error } = await supabase.rpc("add_or_merge_portfolio_asset", {
+      p_symbol: normalizedSymbol,
+      p_name: normalizedName,
+      p_asset_type: normalizedType,
+      p_quantity: quantity,
+      p_purchase_price: purchasePrice,
+      p_currency: normalizedType === "cash" ? "NOK" : normalizedCurrency,
+      p_notes: notes,
+    });
+
+    if (error) {
+      if (error.message.includes("different currency")) {
+        return NextResponse.json(
+          { error: "Denne beholdningen finnes allerede med en annen valuta. Oppdater eksisterende holding i stedet." },
+          { status: 409 }
+        );
+      }
+      throw error;
+    }
+
+    const result = data as { asset: Record<string, unknown>; merged: boolean };
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Error creating portfolio asset:", error);
-    return NextResponse.json({ error: "Failed to create asset" }, { status: 500 });
+    console.error("Error creating or merging portfolio asset:", error);
+    return NextResponse.json({ error: "Failed to create or merge asset" }, { status: 500 });
   }
 }
 
@@ -78,15 +98,67 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, notes, quantity, name } = body;
+    const { id, notes, quantity, name, purchase_price, currency } = body;
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
+    const { data: existingAsset, error: existingError } = await supabase
+      .from("portfolio_assets")
+      .select("id, asset_type")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingError || !existingAsset) {
+      return NextResponse.json({ error: "Holding not found" }, { status: 404 });
+    }
+
     const updates: Record<string, string | number | null> = {};
-    if (notes !== undefined) updates.notes = typeof notes === "string" && notes.trim() ? notes.trim() : null;
-    if (quantity !== undefined) updates.quantity = Number(quantity);
-    if (name !== undefined && typeof name === "string" && name.trim()) updates.name = name.trim();
+
+    if (notes !== undefined) {
+      updates.notes = typeof notes === "string" && notes.trim() ? notes.trim() : null;
+    }
+
+    if (name !== undefined) {
+      const normalizedName = typeof name === "string" ? name.trim() : "";
+      if (!normalizedName) {
+        return NextResponse.json({ error: "Name is required" }, { status: 400 });
+      }
+      updates.name = normalizedName;
+    }
+
+    if (quantity !== undefined) {
+      const normalizedQuantity = Number(quantity);
+      if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
+        return NextResponse.json({ error: "Quantity must be greater than zero" }, { status: 400 });
+      }
+      updates.quantity = normalizedQuantity;
+    }
+
+    if (existingAsset.asset_type === "cash") {
+      updates.purchase_price = null;
+      updates.currency = "NOK";
+    } else {
+      if (purchase_price !== undefined) {
+        const normalizedPurchasePrice = purchase_price == null || purchase_price === ""
+          ? null
+          : Number(purchase_price);
+        if (normalizedPurchasePrice != null && (!Number.isFinite(normalizedPurchasePrice) || normalizedPurchasePrice < 0)) {
+          return NextResponse.json({ error: "Invalid purchase price" }, { status: 400 });
+        }
+        updates.purchase_price = normalizedPurchasePrice;
+      }
+
+      if (currency !== undefined) {
+        const normalizedCurrency = typeof currency === "string" ? currency.trim().toUpperCase() : "";
+        if (!["USD", "NOK", "EUR"].includes(normalizedCurrency)) {
+          return NextResponse.json({ error: "Invalid currency" }, { status: 400 });
+        }
+        updates.currency = normalizedCurrency;
+      }
+    }
+
     updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase

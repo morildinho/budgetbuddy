@@ -48,7 +48,11 @@ interface AssetUpdates {
   notes?: string | null;
   quantity?: number;
   name?: string;
+  purchase_price?: number | null;
+  currency?: string;
 }
+
+export type AddAssetResult = "created" | "merged";
 
 export function usePortfolio() {
   const [assets, setAssets] = useState<PortfolioAsset[]>([]);
@@ -107,50 +111,60 @@ export function usePortfolio() {
     refresh();
   }, [refresh]);
 
-  const addAsset = useCallback(async (newAsset: NewAsset): Promise<boolean> => {
+  const addAsset = useCallback(async (newAsset: NewAsset): Promise<AddAssetResult | null> => {
+    setError(null);
     try {
       const res = await fetch("/api/portfolio/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newAsset),
       });
-      if (!res.ok) throw new Error("Failed to add asset");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Kunne ikke legge til beholdningen");
 
-      setAssets((prev) => [data.asset, ...prev]);
+      const result = data as { asset: PortfolioAsset; merged: boolean };
+      setAssets((previous) => {
+        const alreadyExists = previous.some((asset) => asset.id === result.asset.id);
+        return alreadyExists
+          ? previous.map((asset) => asset.id === result.asset.id ? result.asset : asset)
+          : [result.asset, ...previous];
+      });
 
-      // Fetch price for the new asset
-      const type = newAsset.asset_type;
-      const params = new URLSearchParams();
-      if (type === "crypto") params.set("crypto", newAsset.symbol.toUpperCase());
-      else params.set("stocks", newAsset.symbol.toUpperCase());
+      // Cash has a fixed NOK price and does not need a market-price request.
+      if (newAsset.asset_type !== "cash") {
+        const params = new URLSearchParams();
+        const symbol = newAsset.symbol.trim().toUpperCase();
+        if (newAsset.asset_type === "crypto") params.set("crypto", symbol);
+        else params.set("stocks", symbol);
 
-      const priceRes = await fetch(`/api/portfolio/prices?${params.toString()}`);
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        setPrices((prev) => ({ ...prev, ...priceData.prices }));
+        const priceRes = await fetch(`/api/portfolio/prices?${params.toString()}`);
+        if (priceRes.ok) {
+          const priceData = await priceRes.json();
+          setPrices((previous) => ({ ...previous, ...priceData.prices }));
+        }
       }
 
-      return true;
+      return result.merged ? "merged" : "created";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      return false;
+      setError(err instanceof Error ? err.message : "Ukjent feil");
+      return null;
     }
   }, []);
 
   const updateAsset = useCallback(async (id: string, updates: AssetUpdates): Promise<boolean> => {
+    setError(null);
     try {
       const res = await fetch("/api/portfolio/assets", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
       });
-      if (!res.ok) throw new Error("Failed to update asset");
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Kunne ikke oppdatere beholdningen");
       setAssets((prev) => prev.map((asset) => (asset.id === id ? data.asset : asset)));
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "Ukjent feil");
       return false;
     }
   }, []);

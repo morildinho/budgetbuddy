@@ -336,7 +336,7 @@ function AssetTable({
                       <button
                         onClick={() => onEdit(asset)}
                         className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--accent-primary)]/10 hover:text-[var(--accent-primary)]"
-                        title="Rediger notat"
+                        title="Rediger beholdning"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -361,12 +361,19 @@ function AssetTable({
 
 export default function PortfolioPage() {
   const { isOwner } = usePermissions();
-  const { assets, loading, lastUpdated, addAsset, updateAsset, deleteAsset, refresh } = usePortfolio();
+  const { assets, loading, error, lastUpdated, addAsset, updateAsset, deleteAsset, refresh } = usePortfolio();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [assetNotice, setAssetNotice] = useState<string | null>(null);
   const [editingAsset, setEditingAsset] = useState<AssetWithMetrics | null>(null);
-  const [editNotes, setEditNotes] = useState("");
+  const [editForm, setEditForm] = useState({
+    name: "",
+    quantity: "",
+    purchase_price: "",
+    currency: "USD",
+    notes: "",
+  });
   const [adding, setAdding] = useState(false);
-  const [savingNotes, setSavingNotes] = useState(false);
+  const [savingAsset, setSavingAsset] = useState(false);
 
   const [form, setForm] = useState({
     type: "crypto" as AssetType,
@@ -390,6 +397,12 @@ export default function PortfolioPage() {
 
   const totalGainLoss = assets.reduce((sum, asset) => sum + (asset.gainLossNok ?? 0), 0);
   const hasGainLossData = assets.some((asset) => asset.gainLossNok != null);
+  const existingFormHolding = form.type === "cash"
+    ? null
+    : assets.find(
+        (asset) => asset.asset_type === form.type
+          && asset.symbol.trim().toUpperCase() === form.symbol.trim().toUpperCase()
+      ) ?? null;
 
   const handleAdd = async () => {
     const isCash = form.type === "cash";
@@ -397,7 +410,8 @@ export default function PortfolioPage() {
     const name = isCash ? (form.name.trim() || "Kontanter") : form.name.trim();
     if (!symbol || !name || !form.quantity) return;
     setAdding(true);
-    const success = await addAsset({
+    setAssetNotice(null);
+    const result = await addAsset({
       symbol,
       name,
       asset_type: form.type,
@@ -407,23 +421,53 @@ export default function PortfolioPage() {
       notes: form.notes.trim() || undefined,
     });
     setAdding(false);
-    if (success) {
+    if (result) {
       setShowAddModal(false);
+      setAssetNotice(
+        result === "merged"
+          ? `${symbol} ble slått sammen med eksisterende beholdning. Antallet er oppdatert${existingFormHolding?.purchase_price != null && form.purchase_price ? ", og kjøpsprisen er beregnet som et vektet gjennomsnitt" : ". Gjennomsnittlig kjøpspris er ikke beregnet fordi minst ett av kjøpene mangler kostpris"}.`
+          : `${symbol} ble lagt til i porteføljen.`
+      );
       setForm({ type: "crypto", symbol: "", name: "", quantity: "", purchase_price: "", currency: "USD", notes: "" });
     }
   };
 
-  const openEditNotes = (asset: AssetWithMetrics) => {
+  const openEditAsset = (asset: AssetWithMetrics) => {
     setEditingAsset(asset);
-    setEditNotes(asset.notes || "");
+    setEditForm({
+      name: asset.name,
+      quantity: String(asset.quantity),
+      purchase_price: asset.purchase_price == null ? "" : String(asset.purchase_price),
+      currency: asset.asset_type === "cash" ? "NOK" : asset.currency,
+      notes: asset.notes || "",
+    });
+    setAssetNotice(null);
   };
 
-  const saveNotes = async () => {
-    if (!editingAsset) return;
-    setSavingNotes(true);
-    const success = await updateAsset(editingAsset.id, { notes: editNotes.trim() || null });
-    setSavingNotes(false);
-    if (success) setEditingAsset(null);
+  const saveAsset = async () => {
+    if (!editingAsset || !editForm.name.trim() || !editForm.quantity) return;
+
+    const quantity = Number(editForm.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) return;
+
+    setSavingAsset(true);
+    const success = await updateAsset(editingAsset.id, {
+      name: editForm.name.trim(),
+      quantity,
+      purchase_price: editingAsset.asset_type === "cash"
+        ? null
+        : editForm.purchase_price
+          ? Number(editForm.purchase_price)
+          : null,
+      currency: editingAsset.asset_type === "cash" ? "NOK" : editForm.currency,
+      notes: editForm.notes.trim() || null,
+    });
+    setSavingAsset(false);
+
+    if (success) {
+      setEditingAsset(null);
+      setAssetNotice(`${editingAsset.symbol} er oppdatert.`);
+    }
   };
 
   return (
@@ -451,6 +495,17 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      {assetNotice && (
+        <div className="mb-4 rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 px-4 py-3 text-sm text-[var(--accent-success)]">
+          {assetNotice}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-lg border border-[var(--accent-danger)]/30 bg-[var(--accent-danger)]/10 px-4 py-3 text-sm text-[var(--accent-danger)]">
+          {error}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -511,7 +566,7 @@ export default function PortfolioPage() {
         <AssetTable
           assets={assets}
           onDelete={deleteAsset}
-          onEdit={openEditNotes}
+          onEdit={openEditAsset}
           loading={loading}
           readOnly={!isOwner}
         />
@@ -563,6 +618,16 @@ export default function PortfolioPage() {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
+            </div>
+          )}
+
+          {existingFormHolding && (
+            <div className="rounded-lg border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3 py-2.5 text-sm text-[var(--text-secondary)]">
+              <span className="font-medium text-[var(--accent-primary)]">{existingFormHolding.symbol} finnes allerede.</span>{" "}
+              Dette kjøpet blir slått sammen med {formatQuantity(Number(existingFormHolding.quantity))} eksisterende enheter.
+              {existingFormHolding.purchase_price != null && form.purchase_price
+                ? " Kjøpsprisen beregnes som et vektet gjennomsnitt."
+                : " Gjennomsnittlig kjøpspris forblir ukjent når minst ett av kjøpene mangler kostpris."}
             </div>
           )}
 
@@ -632,7 +697,7 @@ export default function PortfolioPage() {
               disabled={(form.type !== "cash" && (!form.symbol || !form.name)) || !form.quantity || adding}
               isLoading={adding}
             >
-              Lagre
+              {existingFormHolding ? "Slå sammen kjøp" : "Lagre"}
             </Button>
           </div>
         </div>
@@ -641,28 +706,86 @@ export default function PortfolioPage() {
       <Modal
         isOpen={editingAsset !== null}
         onClose={() => setEditingAsset(null)}
-        title={`Notat – ${editingAsset?.name || "portefølje"}`}
+        title={`Rediger ${editingAsset?.symbol || "beholdning"}`}
       >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Delt notat</label>
-            <textarea
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              placeholder="Skriv nødvendig informasjon til husstanden"
-              rows={5}
-              maxLength={1000}
-              className="w-full resize-y rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+        {editingAsset && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2.5">
+              <div>
+                <p className="font-semibold text-[var(--text-primary)]">{editingAsset.symbol}</p>
+                <p className="text-xs text-[var(--text-muted)]">Ticker og type kan ikke endres på en eksisterende holding.</p>
+              </div>
+              <TypeBadge type={editingAsset.asset_type} />
+            </div>
+
+            <Input
+              label="Navn"
+              value={editForm.name}
+              onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))}
             />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Dette vises i porteføljen og på Oversikt for brukere med porteføljetilgang.
-            </p>
+
+            <Input
+              label={editingAsset.asset_type === "cash" ? "Beløp i NOK" : "Antall"}
+              type="number"
+              min="0"
+              step="any"
+              value={editForm.quantity}
+              onChange={(event) => setEditForm((current) => ({ ...current, quantity: event.target.value }))}
+            />
+
+            {editingAsset.asset_type !== "cash" && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Gjennomsnittlig kjøpspris"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Ikke satt"
+                  value={editForm.purchase_price}
+                  onChange={(event) => setEditForm((current) => ({ ...current, purchase_price: event.target.value }))}
+                />
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Valuta</label>
+                  <select
+                    value={editForm.currency}
+                    onChange={(event) => setEditForm((current) => ({ ...current, currency: event.target.value }))}
+                    className="w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="NOK">NOK</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Delt notat</label>
+              <textarea
+                value={editForm.notes}
+                onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))}
+                placeholder="Skriv nødvendig informasjon til husstanden"
+                rows={4}
+                maxLength={1000}
+                className="w-full resize-y rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
+              />
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Dette vises i porteføljen og på Oversikt for brukere med porteføljetilgang.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingAsset(null)}>Avbryt</Button>
+              <Button
+                onClick={saveAsset}
+                isLoading={savingAsset}
+                disabled={!editForm.name.trim() || !editForm.quantity || Number(editForm.quantity) <= 0 || savingAsset}
+              >
+                Lagre endringer
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setEditingAsset(null)}>Avbryt</Button>
-            <Button onClick={saveNotes} isLoading={savingNotes}>Lagre notat</Button>
-          </div>
-        </div>
+        )}
       </Modal>
     </div>
   );

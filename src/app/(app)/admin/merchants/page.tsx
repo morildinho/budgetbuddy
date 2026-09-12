@@ -187,7 +187,7 @@ export default function AdminMerchantsPage() {
                           setPreview(null);
                           if (fileRef.current) fileRef.current.value = "";
                         }}
-                        className="absolute -right-1.5 -top-1.5 rounded-full bg-[var(--accent-danger)] p-0.5 text-white"
+                        className="absolute -right-1.5 -top-1.5 rounded-full bg-[var(--accent-danger)] p-0.5 text-[var(--text-on-accent)]"
                       >
                         <X className="h-3 w-3" />
                       </button>

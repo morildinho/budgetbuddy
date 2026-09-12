@@ -216,7 +216,7 @@ function InviteModal({
                           className={cn(
                             "mx-auto flex h-6 w-6 items-center justify-center rounded border transition-colors",
                             sharesBalance
-                              ? "border-[var(--accent-success)] bg-[var(--accent-success)] text-white"
+                              ? "border-[var(--accent-success)] bg-[var(--accent-success)] text-[var(--text-on-accent)]"
                               : "border-[var(--border-primary)] text-transparent hover:border-[var(--accent-primary)]"
                           )}
                           aria-label={`${sharesBalance ? "Fjern" : "Del"} saldo for ${account.name}`}
@@ -229,7 +229,7 @@ function InviteModal({
                           className={cn(
                             "mx-auto flex h-6 w-6 items-center justify-center rounded border transition-colors",
                             sharesTransactions
-                              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white"
+                              ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
                               : "border-[var(--border-primary)] text-transparent hover:border-[var(--accent-primary)]"
                           )}
                           aria-label={`${sharesTransactions ? "Fjern" : "Del"} transaksjoner for ${account.name}`}
@@ -547,8 +547,8 @@ export default function SettingsPage() {
                               <span className={cn(
                                 "rounded-full px-2 py-0.5 text-xs",
                                 member.invite_status === "accepted"
-                                  ? "bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
-                                  : "bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
+                                  ? "bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
+                                  : "bg-[var(--accent-warning)]/10 text-[var(--accent-warning)]"
                               )}>
                                 {member.invite_status === "accepted" ? "Aktiv" : "Venter"}
                               </span>

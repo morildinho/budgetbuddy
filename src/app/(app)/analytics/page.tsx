@@ -228,12 +228,12 @@ export default function AnalyticsPage() {
                   <BarChart data={monthlyData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: "#94a3b8", fontSize: 12 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
@@ -366,12 +366,12 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
                       <XAxis
                         dataKey="name"
-                        tick={{ fill: "#94a3b8", fontSize: 11 }}
+                        tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <YAxis
-                        tick={{ fill: "#94a3b8", fontSize: 11 }}
+                        tick={{ fill: "var(--text-muted)", fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v: number) => `${v} kr`}

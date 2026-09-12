@@ -6,11 +6,11 @@ interface CardProps {
   hover?: boolean;
 }
 
-export function Card({ children, className, hover = true }: CardProps) {
+export function Card({ children, className, hover = false }: CardProps) {
   return (
     <div
       className={cn(
-        "glass-card rounded-xl transition-all duration-300",
+        "glass-card rounded-2xl transition-colors duration-200",
         hover && "hover:border-[var(--border-secondary)]",
         className
       )}
@@ -29,7 +29,7 @@ export function CardHeader({ children, className }: CardHeaderProps) {
   return (
     <div
       className={cn(
-        "border-b border-[var(--border-primary)] px-6 py-4",
+        "border-b border-[var(--border-primary)] px-5 py-4 lg:px-6",
         className
       )}
     >
@@ -44,7 +44,7 @@ interface CardBodyProps {
 }
 
 export function CardBody({ children, className }: CardBodyProps) {
-  return <div className={cn("p-6", className)}>{children}</div>;
+  return <div className={cn("p-5 lg:p-6", className)}>{children}</div>;
 }
 
 // Stat card component for dashboard
@@ -65,13 +65,13 @@ export function StatCard({ title, value, valueClassName, change, changeType = "n
   };
 
   return (
-    <Card className="p-4 overflow-hidden">
+    <Card className="overflow-hidden p-4 lg:p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-[var(--text-muted)] truncate">{title}</p>
-          <p className={cn("mt-1 truncate text-2xl font-bold text-[var(--text-primary)]", valueClassName)}>{value}</p>
+          <p className="truncate text-xs font-medium text-[var(--text-muted)]">{title}</p>
+          <p className={cn("mt-2 truncate text-2xl font-bold tracking-tight text-[var(--text-primary)]", valueClassName)}>{value}</p>
           {change && (
-            <p className={cn("mt-1 text-sm truncate", changeColors[changeType])}>
+            <p className={cn("mt-1 truncate text-xs", changeColors[changeType])}>
               {changeType === "positive" && "↗ "}
               {changeType === "negative" && "↘ "}
               {change}
@@ -79,7 +79,7 @@ export function StatCard({ title, value, valueClassName, change, changeType = "n
           )}
         </div>
         {icon && (
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--accent-primary)]/10 overflow-hidden">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--accent-primary)]/10">
             {icon}
           </div>
         )}

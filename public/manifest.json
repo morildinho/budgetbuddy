@@ -4,8 +4,8 @@
   "description": "Spor utgiftene dine og hold budsjettet",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#10b981",
+  "background_color": "#f7faf8",
+  "theme_color": "#17624e",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -49,14 +49,14 @@ export function Modal({
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
       <div
         className={cn(
-          "w-full rounded-xl glass-card",
+          "glass-card w-full rounded-2xl shadow-[var(--shadow-elevated)]",
           sizes[size],
           "animate-in fade-in zoom-in-95 duration-200"
         )}
@@ -66,6 +66,7 @@ export function Modal({
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
             <button
               onClick={onClose}
+              aria-label="Lukk dialog"
               className="rounded-lg p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]"
             >
               <X className="h-5 w-5" />

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Home, Receipt, Wallet, BarChart3, Settings, Landmark, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ThemeToggle } from "./ThemeToggle";
 
 const allNavItems = [
   { href: "/", icon: Home, label: "Oversikt", permKey: "overview" },
@@ -31,8 +32,12 @@ export function BottomNav() {
   const displayItems = navItems.slice(0, 6);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] pb-safe lg:hidden">
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
+    <>
+      <div className="mobile-theme-toggle fixed right-4 z-40 lg:hidden">
+        <ThemeToggle compact />
+      </div>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border-primary)] bg-[var(--bg-card)] pb-safe shadow-[0_-8px_28px_rgba(0,0,0,0.08)] lg:hidden">
+        <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-1">
         {displayItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -41,8 +46,9 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs transition-all duration-200",
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] transition-colors sm:text-xs",
                 isActive
                   ? "text-[var(--accent-primary)]"
                   : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -50,7 +56,7 @@ export function BottomNav() {
             >
               <div
                 className={cn(
-                  "flex items-center justify-center rounded-lg p-1.5 transition-all duration-200",
+                  "flex items-center justify-center rounded-lg p-1.5 transition-colors",
                   isActive && "bg-[var(--accent-primary)]/10"
                 )}
               >
@@ -63,7 +69,8 @@ export function BottomNav() {
             </Link>
           );
         })}
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </>
   );
 }

@@ -43,8 +43,8 @@ function ChangeBadge({ change }: { change: number | null }) {
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium",
         positive
-          ? "bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
-          : "bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]"
+          ? "bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
+          : "bg-[var(--accent-danger)]/10 text-[var(--accent-danger)]"
       )}
     >
       {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -58,9 +58,9 @@ function TypeBadge({ type }: { type: AssetType }) {
     <span
       className={cn(
         "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
-        type === "crypto" && "bg-violet-500/15 text-violet-400",
-        type === "stock" && "bg-sky-500/15 text-sky-400",
-        type === "cash" && "bg-emerald-500/15 text-emerald-400"
+        type === "crypto" && "bg-[var(--asset-crypto)]/10 text-[var(--asset-crypto)]",
+        type === "stock" && "bg-[var(--asset-stock)]/10 text-[var(--asset-stock)]",
+        type === "cash" && "bg-[var(--asset-cash)]/10 text-[var(--asset-cash)]"
       )}
     >
       {ASSET_TYPE_LABELS[type]}

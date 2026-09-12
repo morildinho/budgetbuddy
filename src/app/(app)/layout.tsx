@@ -9,9 +9,9 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="app-shell min-h-screen bg-[var(--bg-primary)]">
       <Sidebar />
-      <main className="pb-20 lg:ml-64 lg:pb-0">{children}</main>
+      <main className="min-h-screen pb-24 lg:ml-64 lg:pb-0">{children}</main>
       <BottomNav />
     </div>
   );

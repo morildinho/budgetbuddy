@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,22 +55,14 @@ export default function LoginPage() {
     <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
       {/* Left side - Logo & description */}
       <div className="flex-1 text-center lg:text-left">
-        <div className="relative mx-auto lg:mx-0 h-32 w-64 lg:h-40 lg:w-80 mb-6">
-          <Image
-            src="/logo.png"
-            alt="Budgetbuddy"
-            fill
-            className="object-contain object-center lg:object-left"
-            priority
-          />
-        </div>
+        <BrandLogo className="mb-8 justify-center lg:justify-start [&>span]:text-3xl" />
         <p className="text-[var(--text-secondary)] leading-relaxed">
           Budgetbuddy gir deg oversikt over utgiftene dine, og gir deg kontroll
           over hva du bruker penger på i løpet av en gitt periode. Scan eller
           legg inn kvitteringer og Budgetbuddy legger inn alt i kategorier. Lag
           budsjett og sammenlign med din kontoutskrift.
         </p>
-        <p className="mt-4 text-sm text-[var(--text-muted)]">
+        <p className="mt-4 hidden text-sm text-[var(--text-muted)] lg:block">
           Har du ikke login?{" "}
           <Link
             href="/signup"

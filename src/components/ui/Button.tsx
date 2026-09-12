@@ -25,19 +25,19 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseClasses =
-      "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)] disabled:pointer-events-none disabled:opacity-50";
+      "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)] disabled:pointer-events-none disabled:opacity-50";
 
     const variants = {
       primary:
-        "bg-[var(--accent-primary)] text-[var(--bg-primary)] hover:bg-[var(--accent-primary)]/90 focus:ring-[var(--accent-primary)] shadow-lg shadow-[var(--accent-primary)]/20",
+        "bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-strong)] focus:ring-[var(--accent-primary)] shadow-sm",
       secondary:
-        "bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-primary)] hover:border-[var(--border-secondary)] hover:bg-[var(--bg-card-hover)]",
+        "border border-[var(--border-primary)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:border-[var(--border-secondary)] hover:bg-[var(--bg-card-hover)]",
       outline:
-        "border border-[var(--border-primary)] bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-card)] hover:border-[var(--border-secondary)]",
+        "border border-[var(--border-primary)] bg-transparent text-[var(--text-primary)] hover:border-[var(--border-secondary)] hover:bg-[var(--bg-card)]",
       ghost:
         "text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]",
       danger:
-        "bg-[var(--accent-danger)] text-white hover:bg-[var(--accent-danger)]/90 focus:ring-[var(--accent-danger)]",
+        "bg-[var(--accent-danger)] text-[var(--text-on-accent)] hover:bg-[var(--accent-danger)]/90 focus:ring-[var(--accent-danger)]",
     };
 
     const sizes = {

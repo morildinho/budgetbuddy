@@ -354,7 +354,7 @@ export default function BankPage() {
                             }
                           }}
                           disabled={removingAccount === account.id}
-                          className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-danger)]/80 disabled:opacity-50"
+                          className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)] px-3 py-1.5 text-sm font-medium text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-danger)]/80 disabled:opacity-50"
                         >
                           {removingAccount === account.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

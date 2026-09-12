@@ -46,7 +46,7 @@ const ENTRY_TYPE_CONFIG: Record<
     label: "Inntekt",
     labelPlural: "Inntekter",
     icon: Banknote,
-    color: "#22c55e", // green
+    color: "var(--accent-success)", // green
   },
   fixed_expense: {
     label: "Fast utgift",
@@ -64,7 +64,7 @@ const ENTRY_TYPE_CONFIG: Record<
     label: "Lån",
     labelPlural: "Lån",
     icon: Car,
-    color: "#ef4444", // red
+    color: "var(--accent-danger)", // red
   },
 };
 
@@ -372,7 +372,7 @@ export default function BudgetPage() {
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
                 <div>
                   <p className="text-xs lg:text-sm text-[var(--text-muted)]">Inntekter</p>
-                  <p className="text-lg lg:text-xl font-bold text-[#22c55e]">
+                  <p className="text-lg lg:text-xl font-bold text-[var(--accent-success)]">
                     {formatCurrency(stats.totalIncome)}
                   </p>
                 </div>
@@ -397,7 +397,7 @@ export default function BudgetPage() {
                 <div className="col-span-2 lg:col-span-1 border-t lg:border-t-0 lg:border-l border-[var(--border-primary)] pt-4 lg:pt-0 lg:pl-4">
                   <p className="text-xs lg:text-sm text-[var(--text-muted)]">Balanse</p>
                   <p
-                    className={`text-xl lg:text-2xl font-bold ${stats.balance >= 0 ? "text-[#22c55e]" : "text-[#ef4444]"}`}
+                    className={`text-xl lg:text-2xl font-bold ${stats.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                   >
                     {formatCurrency(stats.balance)}
                   </p>
@@ -409,8 +409,8 @@ export default function BudgetPage() {
                     <p className="text-xs lg:text-sm text-[var(--text-muted)]">Faktisk forbruk (koblet)</p>
                     <p className={`text-sm font-bold ${
                       stats.totalActualExpenses > (stats.totalFixedExpenses + stats.totalVariableExpenses + stats.totalLoans)
-                        ? "text-[#ef4444]"
-                        : "text-[#22c55e]"
+                        ? "text-[var(--accent-danger)]"
+                        : "text-[var(--accent-success)]"
                     }`}>
                       {formatCurrency(stats.totalActualExpenses)} / {formatCurrency(stats.totalFixedExpenses + stats.totalVariableExpenses + stats.totalLoans)}
                     </p>
@@ -504,15 +504,15 @@ export default function BudgetPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <p className="text-sm text-[var(--text-muted)]">Forventede inntekter</p>
-                  <p className="text-xl font-bold text-[#22c55e]">{formatCurrency(periodStats.income)}</p>
+                  <p className="text-xl font-bold text-[var(--accent-success)]">{formatCurrency(periodStats.income)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-[var(--text-muted)]">Forventede utgifter</p>
-                  <p className="text-xl font-bold text-[#ef4444]">{formatCurrency(periodStats.expenses)}</p>
+                  <p className="text-xl font-bold text-[var(--accent-danger)]">{formatCurrency(periodStats.expenses)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-[var(--text-muted)]">Differanse</p>
-                  <p className={`text-xl font-bold ${periodStats.balance >= 0 ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                  <p className={`text-xl font-bold ${periodStats.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}>
                     {formatCurrency(periodStats.balance)}
                   </p>
                 </div>
@@ -544,7 +544,7 @@ export default function BudgetPage() {
                           <p className="truncate font-medium text-[var(--text-primary)]">{entry.description}</p>
                           <p className="text-xs text-[var(--text-muted)]">{config.label}</p>
                         </div>
-                        <p className={`shrink-0 font-semibold ${isIncome ? "text-[#22c55e]" : "text-[#ef4444]"}`}>
+                        <p className={`shrink-0 font-semibold ${isIncome ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}>
                           {isIncome ? "+" : "−"}{formatCurrency(Number(entry.amount))}
                         </p>
                       </div>
@@ -613,7 +613,7 @@ export default function BudgetPage() {
                             style={{
                               height: `${(month.income / maxChartValue) * 100}%`,
                               minHeight: month.income > 0 ? "4px" : "0",
-                              backgroundColor: "#22c55e",
+                              backgroundColor: "var(--accent-success)",
                               opacity: 0.8,
                             }}
                             title={`Inntekt: ${formatCurrency(month.income)}`}
@@ -624,7 +624,7 @@ export default function BudgetPage() {
                             style={{
                               height: `${(month.expenses / maxChartValue) * 100}%`,
                               minHeight: month.expenses > 0 ? "4px" : "0",
-                              backgroundColor: "#ef4444",
+                              backgroundColor: "var(--accent-danger)",
                               opacity: 0.8,
                             }}
                             title={`Utgifter: ${formatCurrency(month.expenses)}`}
@@ -638,11 +638,11 @@ export default function BudgetPage() {
                   </div>
                   <div className="mt-4 flex justify-center gap-6">
                     <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-[#22c55e]" />
+                      <div className="h-3 w-3 rounded bg-[var(--accent-success)]" />
                       <span className="text-sm text-[var(--text-muted)]">Inntekter</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-[#ef4444]" />
+                      <div className="h-3 w-3 rounded bg-[var(--accent-danger)]" />
                       <span className="text-sm text-[var(--text-muted)]">Utgifter</span>
                     </div>
                   </div>
@@ -686,14 +686,14 @@ export default function BudgetPage() {
                             <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
                               {month.month.charAt(0).toUpperCase() + month.month.slice(1)}
                             </td>
-                            <td className="px-4 py-3 text-right text-sm text-[#22c55e]">
+                            <td className="px-4 py-3 text-right text-sm text-[var(--accent-success)]">
                               {formatCurrency(month.income)}
                             </td>
                             <td className="px-4 py-3 text-right text-sm text-[var(--text-primary)]">
                               {formatCurrency(month.expenses)}
                             </td>
                             <td
-                              className={`px-4 py-3 text-right text-sm font-medium ${month.balance >= 0 ? "text-[#22c55e]" : "text-[#ef4444]"}`}
+                              className={`px-4 py-3 text-right text-sm font-medium ${month.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                             >
                               {formatCurrency(month.balance)}
                             </td>
@@ -771,7 +771,7 @@ export default function BudgetPage() {
                         }
                       }}
                     >
-                      <Check className="h-4 w-4 text-[#22c55e]" />
+                      <Check className="h-4 w-4 text-[var(--accent-success)]" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setNewCategory(null)}>
                       <X className="h-4 w-4" />
@@ -797,7 +797,7 @@ export default function BudgetPage() {
                         size="sm"
                         onClick={() => deleteCategory(cat.id)}
                       >
-                        <Trash2 className="h-3 w-3 text-[#ef4444]" />
+                        <Trash2 className="h-3 w-3 text-[var(--accent-danger)]" />
                       </Button>
                     </div>
                   ))}
@@ -916,7 +916,7 @@ function EntrySection({
                     className="w-36 lg:w-40"
                   />
                   <Button variant="ghost" size="sm" onClick={() => onSaveEdit(entry.id)}>
-                    <Check className="h-4 w-4 text-[#22c55e]" />
+                    <Check className="h-4 w-4 text-[var(--accent-success)]" />
                   </Button>
                   <Button variant="ghost" size="sm" onClick={onCancelEdit}>
                     <X className="h-4 w-4" />
@@ -935,7 +935,7 @@ function EntrySection({
                           <Edit2 className="h-3 w-3" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => onDeleteEntry(entry.id)}>
-                          <Trash2 className="h-3 w-3 text-[#ef4444]" />
+                          <Trash2 className="h-3 w-3 text-[var(--accent-danger)]" />
                         </Button>
                       </div>
                     </div>
@@ -960,11 +960,11 @@ function EntrySection({
                       return (
                         <div className="mt-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className={over ? "text-[#ef4444]" : "text-[var(--text-muted)]"}>
+                            <span className={over ? "text-[var(--accent-danger)]" : "text-[var(--text-muted)]"}>
                               {formatCurrency(actual)} / {formatCurrency(budgeted)}
                             </span>
                             {over && (
-                              <span className="font-medium text-[#ef4444]">
+                              <span className="font-medium text-[var(--accent-danger)]">
                                 +{formatCurrency(actual - budgeted)}
                               </span>
                             )}
@@ -974,7 +974,7 @@ function EntrySection({
                               className="h-full rounded-full transition-all duration-300"
                               style={{
                                 width: `${pct}%`,
-                                backgroundColor: over ? "#ef4444" : "#22c55e",
+                                backgroundColor: over ? "var(--accent-danger)" : "var(--accent-success)",
                               }}
                             />
                           </div>
@@ -1006,7 +1006,7 @@ function EntrySection({
                   className="w-28 lg:w-32"
                 />
                 <Button variant="ghost" size="sm" onClick={onSaveNewEntry}>
-                  <Check className="h-4 w-4 text-[#22c55e]" />
+                  <Check className="h-4 w-4 text-[var(--accent-success)]" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setNewEntry(null)}>
                   <X className="h-4 w-4" />

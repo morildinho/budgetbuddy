@@ -20,10 +20,9 @@ import {
   Receipt,
   Settings2,
   Trash2,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
-import { Card, CardBody, CardHeader, StatCard } from "@/components/ui/Card";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -472,6 +471,13 @@ export default function DashboardPage() {
     acc[asset.asset_type] = (acc[asset.asset_type] || 0) + (asset.currentValueNok ?? 0);
     return acc;
   }, {});
+  const now = new Date();
+  const greeting = now.getHours() < 12 ? "God morgen" : now.getHours() < 18 ? "God ettermiddag" : "God kveld";
+  const todayLabel = now.toLocaleDateString("nb-NO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   const createOverviewNote = async () => {
     if (!newOverviewNote.trim()) return;
@@ -579,12 +585,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 pb-24 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-[1600px] p-4 pb-24 lg:p-8">
       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] lg:text-3xl">Oversikt</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Din personlige økonomiske cockpit — budsjett, kontoer, transaksjoner og portefølje.
+          <p className="mb-1 text-xs font-semibold capitalize text-[var(--text-muted)]">{todayLabel}</p>
+          <h1 className="page-heading text-3xl font-bold text-[var(--text-primary)] lg:text-4xl">{greeting}</h1>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Her er statusen for husholdningsøkonomien akkurat nå.
           </p>
         </div>
         <Button variant="outline" onClick={() => setCustomizing((value) => !value)}>
@@ -617,7 +624,7 @@ export default function DashboardPage() {
                       <span
                         className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded border ${
                           enabled
-                            ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white"
+                            ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
                             : "border-[var(--border-primary)]"
                         }`}
                       >
@@ -652,8 +659,9 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      <div className="flex flex-col">
       {(isOwner || effectiveCanView.overview) && (
-        <Card className="mb-4 border-[var(--accent-primary)]/20">
+        <Card className="order-2 mt-4 border-[var(--accent-primary)]/20">
           <CardHeader>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-[var(--accent-primary)]" />
@@ -778,6 +786,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      <div className="order-1">
       {visibleWidgets.length === 0 ? (
         <EmptyState
           icon={LayoutGrid}
@@ -785,43 +794,56 @@ export default function DashboardPage() {
           description="Klikk på Tilpass oversikt og velg minst én widget."
         />
       ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3 xl:gap-5">
           {visibleWidgets.map((widget) => {
             if (widget.id === "cashflow") {
               return (
-                <Card key={widget.id} className="flex h-fit flex-col xl:col-span-2 xl:h-[22rem]">
-                  <CardHeader>
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-5 w-5 text-[var(--accent-primary)]" />
-                      <h2 className="font-semibold text-[var(--text-primary)]">Cashflow denne måneden</h2>
+                <Card key={widget.id} className="balance-hero flex h-fit flex-col overflow-hidden xl:col-span-2 xl:h-[22rem]">
+                  <CardHeader className="border-white/10">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-5 w-5 text-[#9be8cf]" />
+                        <h2 className="font-semibold text-[#f7fffb]">Cashflow denne måneden</h2>
+                      </div>
+                      <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium text-white/70">
+                        Bankdata
+                      </span>
                     </div>
                   </CardHeader>
                   <CardBody className="flex flex-1 items-center">
                     {transactionsLoading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" />
+                      <Loader2 className="h-5 w-5 animate-spin text-[#9be8cf]" />
                     ) : (
-                      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
-                        <StatCard
-                          title="Inntekt"
-                          value={formatCurrency(monthIncome)}
-                          change="Banktransaksjoner"
-                          changeType="positive"
-                          icon={<ArrowUpRight className="h-5 w-5 text-[var(--accent-success)]" />}
-                        />
-                        <StatCard
-                          title="Utgifter"
-                          value={formatCurrency(monthExpenses)}
-                          change="Denne måneden"
-                          changeType="negative"
-                          icon={<ArrowDownLeft className="h-5 w-5 text-[var(--accent-danger)]" />}
-                        />
-                        <StatCard
-                          title="Netto"
-                          value={formatCurrency(monthNet)}
-                          change={monthNet >= 0 ? "Pluss" : "Minus"}
-                          changeType={monthNet >= 0 ? "positive" : "negative"}
-                          icon={<TrendingUp className="h-5 w-5 text-[var(--accent-primary)]" />}
-                        />
+                      <div className="w-full">
+                        <p className="text-xs font-medium text-white/60">Netto hittil denne måneden</p>
+                        <p className="mt-2 text-4xl font-bold tracking-tight text-[#f7fffb] lg:text-5xl">
+                          {monthNet >= 0 ? "+" : ""}{formatCurrency(monthNet)}
+                        </p>
+                        <span className={cn(
+                          "mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                          monthNet >= 0 ? "bg-emerald-300/15 text-emerald-100" : "bg-red-300/15 text-red-100"
+                        )}>
+                          {monthNet >= 0 ? "Positiv kontantstrøm" : "Negativ kontantstrøm"}
+                        </span>
+
+                        <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
+                          <div>
+                            <div className="flex items-center gap-1.5 text-xs text-white/55">
+                              <ArrowUpRight className="h-3.5 w-3.5 text-emerald-200" /> Inntekter
+                            </div>
+                            <p className="mt-1 text-lg font-semibold text-[#f7fffb]">{formatCurrency(monthIncome)}</p>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 text-xs text-white/55">
+                              <ArrowDownLeft className="h-3.5 w-3.5 text-orange-200" /> Utgifter
+                            </div>
+                            <p className="mt-1 text-lg font-semibold text-[#f7fffb]">{formatCurrency(monthExpenses)}</p>
+                          </div>
+                          <div className="hidden sm:block">
+                            <p className="text-xs text-white/55">Datagrunnlag</p>
+                            <p className="mt-1 text-sm font-medium text-white/85">{monthTransactions.length} transaksjoner</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </CardBody>
@@ -898,9 +920,10 @@ export default function DashboardPage() {
                       <p className="text-sm text-[var(--text-muted)]">Ingen kontoer hentet ennå.</p>
                     ) : (
                       <div className="flex h-full min-h-0 flex-col">
-                        <div className="mb-4 shrink-0 rounded-xl bg-[var(--accent-primary)]/10 p-4">
-                          <p className="text-xs text-[var(--text-muted)]">Total saldo</p>
-                          <p className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(totalBalance)}</p>
+                        <div className="soft-panel mb-4 shrink-0 rounded-xl p-4">
+                          <p className="text-xs font-medium text-[var(--text-muted)]">Tilgjengelig saldo</p>
+                          <p className="mt-1 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{formatCurrency(totalBalance)}</p>
+                          <p className="mt-1 text-[10px] text-[var(--text-muted)]">På tvers av {accounts.length} {accounts.length === 1 ? "konto" : "kontoer"}</p>
                         </div>
                         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                           {orderedAccounts.map((account, index) => (
@@ -1138,6 +1161,8 @@ export default function DashboardPage() {
           })}
         </div>
       )}
+      </div>
+      </div>
 
       <div className="mt-6 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-4 text-xs text-[var(--text-muted)]">
         Tips: Dette er første versjon av tilpassbar oversikt. Valgene lagres på denne enheten. Senere kan vi flytte dem til kontoen din så de følger deg på tvers av enheter.

@@ -28,7 +28,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={id}
             className={cn(
-              "w-full appearance-none rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 pr-10 text-sm text-[var(--text-primary)] transition-all duration-200",
+              "w-full appearance-none rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] px-3 py-2.5 pr-10 text-sm text-[var(--text-primary)] shadow-sm transition-colors duration-200",
               "focus:border-[var(--accent-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)]",
               "disabled:cursor-not-allowed disabled:opacity-50",
               error && "border-[var(--accent-danger)] focus:border-[var(--accent-danger)] focus:ring-[var(--accent-danger)]",
@@ -37,7 +37,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {...props}
           >
             {options.map((option) => (
-              <option key={option.value} value={option.value} className="bg-[var(--bg-secondary)]">
+              <option key={option.value} value={option.value} className="bg-[var(--bg-card)]">
                 {option.label}
               </option>
             ))}

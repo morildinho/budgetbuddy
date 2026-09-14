@@ -285,9 +285,9 @@ export default function BudgetPage() {
   }
 
   return (
-    <div className="min-h-screen p-4 lg:p-8 pb-24">
+    <div className="min-h-screen p-4 pb-24 lg:p-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-[var(--text-primary)] lg:text-3xl">Budsjett</h1>
         <p className="text-sm text-[var(--text-muted)]">Planlegg og spor inntekter og utgifter</p>
       </div>
@@ -302,7 +302,7 @@ export default function BudgetPage() {
       )}
 
       {/* Tab Selector */}
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <Button
           variant={activeTab === "monthly" ? "primary" : "outline"}
           onClick={() => setActiveTab("monthly")}
@@ -336,8 +336,8 @@ export default function BudgetPage() {
       {activeTab === "monthly" && (
         <>
           {/* Month Navigation */}
-          <Card className="mb-6">
-            <CardBody className="p-4">
+          <Card className="mb-4">
+            <CardBody className="p-3 lg:p-4">
               <div className="flex items-center justify-between gap-2">
                 <Button variant="ghost" size="sm" onClick={() => navigateMonth("prev")}>
                   <ChevronLeft className="h-5 w-5" />
@@ -367,9 +367,9 @@ export default function BudgetPage() {
           </Card>
 
           {/* Balance Summary */}
-          <Card className="mb-6">
-            <CardBody className="p-4 lg:p-6">
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <Card className="mb-4">
+            <CardBody className="p-3 lg:p-4">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                 <div>
                   <p className="text-xs lg:text-sm text-[var(--text-muted)]">Inntekter</p>
                   <p className="text-lg lg:text-xl font-bold text-[var(--accent-success)]">
@@ -394,7 +394,7 @@ export default function BudgetPage() {
                     {formatCurrency(stats.totalLoans)}
                   </p>
                 </div>
-                <div className="col-span-2 lg:col-span-1 border-t lg:border-t-0 lg:border-l border-[var(--border-primary)] pt-4 lg:pt-0 lg:pl-4">
+                <div className="col-span-2 border-t border-[var(--border-primary)] pt-3 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
                   <p className="text-xs lg:text-sm text-[var(--text-muted)]">Balanse</p>
                   <p
                     className={`text-xl lg:text-2xl font-bold ${stats.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
@@ -404,7 +404,7 @@ export default function BudgetPage() {
                 </div>
               </div>
               {stats.totalActualExpenses > 0 && (
-                <div className="mt-4 border-t border-[var(--border-primary)] pt-4">
+                <div className="mt-3 border-t border-[var(--border-primary)] pt-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs lg:text-sm text-[var(--text-muted)]">Faktisk forbruk (koblet)</p>
                     <p className={`text-sm font-bold ${
@@ -421,7 +421,7 @@ export default function BudgetPage() {
           </Card>
 
           {/* Entry Sections */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {(["income", "fixed_expense", "variable_expense", "loan"] as BudgetEntryType[]).map(
               (type) => (
                 <EntrySection
@@ -450,7 +450,7 @@ export default function BudgetPage() {
       )}
 
       {activeTab === "period" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Card>
             <CardHeader>
               <div>
@@ -527,7 +527,7 @@ export default function BudgetPage() {
                 <h2 className="font-semibold text-[var(--text-primary)]">Tidslinje</h2>
               </div>
             </CardHeader>
-            <CardBody className="p-0">
+            <CardBody className="p-0 lg:p-0">
               {periodLoading ? (
                 <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[var(--accent-primary)]" /></div>
               ) : periodEntries.length === 0 ? (
@@ -538,7 +538,7 @@ export default function BudgetPage() {
                     const config = ENTRY_TYPE_CONFIG[entry.entry_type];
                     const isIncome = entry.entry_type === "income";
                     return (
-                      <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
+                      <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-2 lg:px-5">
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-[var(--accent-primary)]">{formatBudgetDate(entry.planned_date!)}</p>
                           <p className="truncate font-medium text-[var(--text-primary)]">{entry.description}</p>
@@ -563,10 +563,10 @@ export default function BudgetPage() {
                   <p className="text-xs text-[var(--text-muted)]">Disse tilhører måneder som berøres av perioden, men teller ikke i periodesummen før de får en dato.</p>
                 </div>
               </CardHeader>
-              <CardBody className="p-0">
+              <CardBody className="p-0 lg:p-0">
                 <div className="divide-y divide-[var(--border-primary)]">
                   {undatedEntries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-3 lg:px-6">
+                    <div key={entry.id} className="flex items-center justify-between gap-4 px-4 py-2 lg:px-5">
                       <div>
                         <p className="font-medium text-[var(--text-primary)]">{entry.description}</p>
                         <p className="text-xs text-[var(--text-muted)]">{ENTRY_TYPE_CONFIG[entry.entry_type].label} · {formatBudgetDate(entry.budget_month)}</p>
@@ -582,7 +582,7 @@ export default function BudgetPage() {
       )}
 
       {activeTab === "yearly" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {yearlyLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
@@ -654,21 +654,21 @@ export default function BudgetPage() {
                 <CardHeader>
                   <h2 className="font-semibold text-[var(--text-primary)]">Detaljert oversikt</h2>
                 </CardHeader>
-                <CardBody className="p-0">
+                <CardBody className="p-0 lg:p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-[var(--border-primary)]">
-                          <th className="px-4 py-3 text-left text-sm font-medium text-[var(--text-muted)]">
+                          <th className="px-4 py-2 text-left text-sm font-medium text-[var(--text-muted)]">
                             Måned
                           </th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-[var(--text-muted)]">
+                          <th className="px-4 py-2 text-right text-sm font-medium text-[var(--text-muted)]">
                             Inntekt
                           </th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-[var(--text-muted)]">
+                          <th className="px-4 py-2 text-right text-sm font-medium text-[var(--text-muted)]">
                             Utgifter
                           </th>
-                          <th className="px-4 py-3 text-right text-sm font-medium text-[var(--text-muted)]">
+                          <th className="px-4 py-2 text-right text-sm font-medium text-[var(--text-muted)]">
                             Balanse
                           </th>
                         </tr>
@@ -683,17 +683,17 @@ export default function BudgetPage() {
                               setActiveTab("monthly");
                             }}
                           >
-                            <td className="px-4 py-3 text-sm text-[var(--text-primary)]">
+                            <td className="px-4 py-2 text-sm text-[var(--text-primary)]">
                               {month.month.charAt(0).toUpperCase() + month.month.slice(1)}
                             </td>
-                            <td className="px-4 py-3 text-right text-sm text-[var(--accent-success)]">
+                            <td className="px-4 py-2 text-right text-sm text-[var(--accent-success)]">
                               {formatCurrency(month.income)}
                             </td>
-                            <td className="px-4 py-3 text-right text-sm text-[var(--text-primary)]">
+                            <td className="px-4 py-2 text-right text-sm text-[var(--text-primary)]">
                               {formatCurrency(month.expenses)}
                             </td>
                             <td
-                              className={`px-4 py-3 text-right text-sm font-medium ${month.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
+                              className={`px-4 py-2 text-right text-sm font-medium ${month.balance >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                             >
                               {formatCurrency(month.balance)}
                             </td>
@@ -710,7 +710,7 @@ export default function BudgetPage() {
       )}
 
       {activeTab === "categories" && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {categoriesLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
@@ -781,12 +781,12 @@ export default function BudgetPage() {
               )}
 
               {/* Category List */}
-              <CardBody className="p-0">
+              <CardBody className="p-0 lg:p-0">
                 <div className="divide-y divide-[var(--border-primary)]">
                   {mainCategories.map((cat) => (
                     <div
                       key={cat.id}
-                      className="flex items-center justify-between px-4 lg:px-6 py-3"
+                      className="flex items-center justify-between px-4 py-2 lg:px-5"
                     >
                       <div className="flex items-center gap-3">
                         <Tag className="h-4 w-4 text-[var(--accent-primary)]" />
@@ -888,10 +888,10 @@ function EntrySection({
           </div>
         </div>
       </CardHeader>
-      <CardBody className="p-0">
+      <CardBody className="p-0 lg:p-0">
         <div className="divide-y divide-[var(--border-primary)]">
           {entries.map((entry) => (
-            <div key={entry.id} className="flex items-center justify-between px-4 lg:px-6 py-2">
+            <div key={entry.id} className="flex items-center justify-between px-4 py-1.5 lg:px-5">
               {editingEntry === entry.id ? (
                 <div className="flex flex-1 flex-wrap items-center gap-2">
                   <Input
@@ -931,10 +931,10 @@ function EntrySection({
                         <span className="font-medium text-[var(--text-primary)]">
                           {formatCurrency(Number(entry.amount))}
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => onStartEdit(entry)}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 px-0" onClick={() => onStartEdit(entry)}>
                           <Edit2 className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => onDeleteEntry(entry.id)}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 px-0" onClick={() => onDeleteEntry(entry.id)}>
                           <Trash2 className="h-3 w-3 text-[var(--accent-danger)]" />
                         </Button>
                       </div>
@@ -989,7 +989,7 @@ function EntrySection({
 
           {/* New Entry Form */}
           {newEntry && (
-            <div className="px-4 lg:px-6 py-3 bg-[var(--bg-secondary)]">
+            <div className="bg-[var(--bg-secondary)] px-4 py-2 lg:px-5">
               <div className="flex items-center gap-2">
                 <Input
                   placeholder="Beskrivelse"
@@ -1039,7 +1039,7 @@ function EntrySection({
           )}
 
           {entries.length === 0 && !newEntry && (
-            <div className="px-4 lg:px-6 py-6 text-center">
+            <div className="px-4 py-4 text-center lg:px-5">
               <p className="text-sm text-[var(--text-muted)]">
                 Ingen {config.labelPlural.toLowerCase()} lagt til
               </p>

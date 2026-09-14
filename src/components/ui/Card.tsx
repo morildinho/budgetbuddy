@@ -29,7 +29,7 @@ export function CardHeader({ children, className }: CardHeaderProps) {
   return (
     <div
       className={cn(
-        "border-b border-[var(--border-primary)] px-5 py-4 lg:px-6",
+        "border-b border-[var(--border-primary)] px-4 py-3 lg:px-5",
         className
       )}
     >
@@ -44,7 +44,7 @@ interface CardBodyProps {
 }
 
 export function CardBody({ children, className }: CardBodyProps) {
-  return <div className={cn("p-5 lg:p-6", className)}>{children}</div>;
+  return <div className={cn("p-4 lg:p-5", className)}>{children}</div>;
 }
 
 // Stat card component for dashboard
@@ -65,11 +65,11 @@ export function StatCard({ title, value, valueClassName, change, changeType = "n
   };
 
   return (
-    <Card className="overflow-hidden p-4 lg:p-5">
+    <Card className="overflow-hidden p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-[var(--text-muted)]">{title}</p>
-          <p className={cn("mt-2 truncate text-2xl font-bold tracking-tight text-[var(--text-primary)]", valueClassName)}>{value}</p>
+          <p className={cn("mt-1.5 truncate text-2xl font-bold tracking-tight text-[var(--text-primary)]", valueClassName)}>{value}</p>
           {change && (
             <p className={cn("mt-1 truncate text-xs", changeColors[changeType])}>
               {changeType === "positive" && "↗ "}
